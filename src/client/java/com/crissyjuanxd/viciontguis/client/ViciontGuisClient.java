@@ -1,5 +1,8 @@
 package com.crissyjuanxd.viciontguis.client;
 
+import com.crissyjuanxd.viciontguis.client.gui.DynamicGuiScreen;
+import com.crissyjuanxd.viciontguis.client.gui.GuiTexturePreloader;
+import com.crissyjuanxd.viciontguis.client.network.GuiNetworkHandler;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -56,6 +59,8 @@ public class ViciontGuisClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        GuiTexturePreloader.init();
+        GuiNetworkHandler.register();
         testGuiKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "Abrir Menu Principal",
                 InputUtil.Type.KEYSYM,
