@@ -1,0 +1,38 @@
+{
+	"schemaVersion": 1,
+	"id": "viciontguis",
+	"version": "${version}",
+	"name": "Viciont Guis",
+	"description": "Mod para poder crear guis custom.",
+	"authors": [
+		"CrissyjuanxD"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/viciontguis/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.crissyjuanxd.viciontguis.ViciontGuis"
+		],
+		"client": [
+			"com.crissyjuanxd.viciontguis.client.ViciontGuisClient"
+		]
+	},
+	"mixins": [
+		"viciontguis.mixins.json",
+		{
+			"config": "viciontguis.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.18.4",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
