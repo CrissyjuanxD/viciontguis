@@ -12,11 +12,6 @@ import net.minecraft.util.Identifier;
 
 import java.util.UUID;
 
-/**
- * Todo lo relacionado a elementos type="entity": instanciar la entidad (una sola vez,
- * cacheada en el propio {@link GuiElement}) y dibujarla en 3D dentro de su "card"
- * usando scissor para que mobs grandes no se salgan del recuadro.
- */
 public final class EntityRenderHandler {
 
     private EntityRenderHandler() {}
@@ -50,18 +45,20 @@ public final class EntityRenderHandler {
         return element.cachedEntity;
     }
 
-    /**
-     * Dibuja el fondo de la card + la entidad 3D con scissor.
-     * IMPORTANTE: esto hace pop/push de la matriz de {@code context} porque
-     * {@link InventoryScreen#drawEntity} necesita trabajar en espacio de pantalla
-     * absoluto, no dentro de la transformación de escala/animación de la GUI.
-     * El caller (DynamicGuiScreen) es responsable de que la matriz esté en el
-     * mismo estado (centrada + escalada) antes y después de llamar a este método.
-     */
     public static void render(DrawContext context, GuiElement element, MinecraftClient client,
-                              int centerX, int centerY, float finalScale, int mouseX, int mouseY) {
+                              int screenWidth, int screenHeight, float finalScale, int mouseX, int mouseY) {
+        render(context, element, client, screenWidth, screenHeight, finalScale, mouseX, mouseY, 0, 0);
+    }
+
+    public static void render(DrawContext context, GuiElement element, MinecraftClient client,
+                              int screenWidth, int screenHeight, float finalScale, int mouseX, int mouseY,
+                              int shiftX, int shiftY) {
+
+        int rx = element.getRenderX(screenWidth, shiftX);
+        int ry = element.getRenderY(screenHeight, shiftY);
+
         if (element.texture != null) {
-            context.drawTexture(element.texture, element.x, element.y, 0, 0, element.width, element.height, element.texWidth, element.texHeight);
+            context.drawTexture(element.texture, rx, ry, 0, 0, element.width, element.height, element.texWidth, element.texHeight);
         }
 
         LivingEntity entity = getOrCreateEntity(element, client);
@@ -73,10 +70,13 @@ public final class EntityRenderHandler {
 
         context.getMatrices().pop();
 
-        int absX1 = (int) (centerX + (element.x + 2 - centerX) * finalScale);
-        int absY1 = (int) (centerY + (element.y + 2 - centerY) * finalScale);
-        int absX2 = (int) (centerX + (element.x + element.width - 2 - centerX) * finalScale);
-        int absY2 = (int) (centerY + (element.y + element.height - 4 - centerY) * finalScale);
+        int centerX = screenWidth / 2;
+        int centerY = screenHeight / 2;
+
+        int absX1 = (int) (centerX + (rx + 2 - centerX) * finalScale);
+        int absY1 = (int) (centerY + (ry + 2 - centerY) * finalScale);
+        int absX2 = (int) (centerX + (rx + element.width - 2 - centerX) * finalScale);
+        int absY2 = (int) (centerY + (ry + element.height - 4 - centerY) * finalScale);
         int scaledSize = (int) (element.entityScale * finalScale);
 
         context.enableScissor(absX1, absY1, absX2, absY2);

@@ -3,7 +3,8 @@
 	"package": "com.crissyjuanxd.viciontguis.client.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
-		"ExampleClientMixin"
+		"ExampleClientMixin",
+		"HandledScreenMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

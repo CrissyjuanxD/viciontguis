@@ -8,49 +8,39 @@ import net.minecraft.util.Identifier;
 
 import java.util.List;
 
-/**
- * Representa un elemento individual de una GUI dinámica (botón, texto, item, entidad, etc).
- * Es un simple contenedor de datos: el parseo lo hace {@link GuiElementFactory}
- * y el dibujado lo hace {@link GuiElementRenderer} / {@link EntityRenderHandler}.
- */
 public class GuiElement {
 
     public final String id;
     public final String type;
     public final String action;
+    public final String anchor;
 
     public final Identifier texture;
     public final ItemStack mcItem;
 
-    public final int x, y, width, height;
+    public final int offsetX, offsetY, width, height;
     public final int texWidth, texHeight;
 
     public final boolean isButton;
     public final List<Text> tooltipLines;
 
-    // Texto simple
     public final String text;
     public final int textColor;
     public final float textScale;
     public final boolean textBold;
 
-    // Entidad 3D
     public final String entityId;
     public final String entityName;
     public final int entityScale;
 
-    // rich_text (tellraw-like)
     public final List<OrderedText> richLines;
     public final int richColor;
     public final float richScale;
 
-    // Cache de la entidad instanciada (una sola vez por elemento/pantalla).
-    // Vive acá porque el ciclo de vida de la entidad está atado al ciclo de vida
-    // de este elemento, no al del renderer (que es stateless).
     LivingEntity cachedEntity = null;
     boolean entityInitAttempted = false;
 
-    public GuiElement(String id, String type, Identifier texture, ItemStack mcItem, int x, int y, int width, int height,
+    public GuiElement(String id, String type, Identifier texture, ItemStack mcItem, String anchor, int offsetX, int offsetY, int width, int height,
                       int texWidth, int texHeight, boolean isButton, List<Text> tooltipLines, String action,
                       String text, int textColor, float textScale, boolean textBold,
                       String entityId, String entityName, int entityScale,
@@ -59,8 +49,9 @@ public class GuiElement {
         this.type = type;
         this.texture = texture;
         this.mcItem = mcItem;
-        this.x = x;
-        this.y = y;
+        this.anchor = anchor;
+        this.offsetX = offsetX;
+        this.offsetY = offsetY;
         this.width = width;
         this.height = height;
         this.texWidth = texWidth;
@@ -80,7 +71,43 @@ public class GuiElement {
         this.richScale = richScale;
     }
 
-    public boolean isHovered(int mouseX, int mouseY) {
-        return mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + height;
+    public int getBaseX(int screenWidth) {
+        if (anchor == null) return screenWidth / 2;
+        return switch (anchor) {
+            case "top_left", "bottom_left", "left" -> 0;
+            case "top_right", "bottom_right", "right" -> screenWidth;
+            default -> screenWidth / 2;
+        };
+    }
+
+    public int getBaseY(int screenHeight) {
+        if (anchor == null) return screenHeight / 2;
+        return switch (anchor) {
+            case "top_left", "top_right", "top_center" -> 0;
+            case "bottom_left", "bottom_right", "bottom_center" -> screenHeight;
+            default -> screenHeight / 2;
+        };
+    }
+
+    // OPTIMIZACIÓN + fix del shift: un único lugar que calcula rx/ry,
+    // en vez de que cada método de render lo recalculara por su cuenta.
+    public int getRenderX(int screenWidth, int shiftX) {
+        return getBaseX(screenWidth) + shiftX + offsetX - (width / 2);
+    }
+
+    public int getRenderY(int screenHeight, int shiftY) {
+        return getBaseY(screenHeight) + shiftY + offsetY - (height / 2);
+    }
+
+    public boolean isHovered(int mouseX, int mouseY, int screenWidth, int screenHeight) {
+        return isHovered(mouseX, mouseY, screenWidth, screenHeight, 0, 0);
+    }
+
+    // Nueva variante: permite desplazar el hitbox junto con el panel
+    // (usada cuando el libro de recetas mueve el InventoryScreen).
+    public boolean isHovered(int mouseX, int mouseY, int screenWidth, int screenHeight, int shiftX, int shiftY) {
+        int rx = getRenderX(screenWidth, shiftX);
+        int ry = getRenderY(screenHeight, shiftY);
+        return mouseX >= rx && mouseX <= rx + width && mouseY >= ry && mouseY <= ry + height;
     }
 }

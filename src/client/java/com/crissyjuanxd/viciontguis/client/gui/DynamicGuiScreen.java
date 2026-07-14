@@ -1,7 +1,7 @@
 package com.crissyjuanxd.viciontguis.client.gui;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -46,12 +46,13 @@ public class DynamicGuiScreen extends Screen {
             this.customScaleModifier = (1.0f / guiScale) * (resolutionScale * BASE_MENU_SCALE);
         }
 
-        Gson gson = new Gson();
         try {
-            JsonObject guiData = gson.fromJson(jsonPayload, JsonObject.class);
-            int centerX = this.width / 2;
-            int centerY = this.height / 2;
-            GuiElementFactory.ParseResult result = GuiElementFactory.parse(guiData, centerX, centerY, this.textRenderer);
+            // OPTIMIZACIÓN: cada apertura de menú instanciaba un Gson nuevo solo para
+            // parsear un JSON en un JsonObject. JsonParser.parseString hace lo mismo
+            // sin construir un objeto Gson completo (que internamente arma su propia
+            // configuración de adapters) cada vez que el jugador cambia de pantalla.
+            JsonObject guiData = JsonParser.parseString(jsonPayload).getAsJsonObject();
+            GuiElementFactory.ParseResult result = GuiElementFactory.parse(guiData, this.textRenderer);
             this.background = result.background();
             this.interactableElements.addAll(result.elements());
         } catch (Exception e) {
@@ -59,14 +60,6 @@ public class DynamicGuiScreen extends Screen {
         }
     }
 
-    /**
-     * FIX real del bug del flash de FancyMenu al cerrar.
-     * Antes el cierre se completaba dentro de render() (mid-frame, vía client.execute()),
-     * lo que igual podía dejar que otros mods que escuchan la screen (FancyMenu incluido)
-     * vieran un estado "screen == null" en un momento raro del frame.
-     * tick() corre en un punto fijo del game loop, nunca a mitad de un render, así que
-     * cerrar acá es el punto correcto y predecible del ciclo del juego.
-     */
     @Override
     public void tick() {
         if (isClosing && Util.getMeasuringTimeMs() - animationStartTime >= ANIM_DURATION_MS) {
@@ -93,15 +86,14 @@ public class DynamicGuiScreen extends Screen {
                 ? 1.0f - (progress * progress * progress)
                 : 1.0f - (float) Math.pow(1.0f - progress, 3);
 
-        if (isClosing && progress >= 1.0f) {
-            // No queda nada que valga la pena dibujar; tick() va a terminar el cierre
-            // en cualquier momento. El overlay oscuro ya se dibujó arriba.
-            return;
-        }
+        if (isClosing && progress >= 1.0f) return;
 
         float finalScale = animScale * customScaleModifier;
-        int centerX = this.width / 2;
-        int centerY = this.height / 2;
+        int screenWidth = this.width;
+        int screenHeight = this.height;
+        int centerX = screenWidth / 2;
+        int centerY = screenHeight / 2;
+
         int adjMouseX = (int) (centerX + (mouseX - centerX) / customScaleModifier);
         int adjMouseY = (int) (centerY + (mouseY - centerY) / customScaleModifier);
 
@@ -125,7 +117,7 @@ public class DynamicGuiScreen extends Screen {
         for (GuiElement element : interactableElements) {
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
-            boolean isHovered = animScale >= 1.0f && !isClosing && element.isHovered(adjMouseX, adjMouseY);
+            boolean isHovered = animScale >= 1.0f && !isClosing && element.isHovered(adjMouseX, adjMouseY, screenWidth, screenHeight);
             if (isHovered && !element.type.equals("invisible_button")) {
                 hoveredElement = element;
                 if (element.isButton && !element.type.equals("item_slot") && !element.type.equals("entity")) {
@@ -134,12 +126,12 @@ public class DynamicGuiScreen extends Screen {
             }
 
             switch (element.type) {
-                case "item_slot" -> GuiElementRenderer.renderItemSlot(context, element, isHovered);
-                case "entity" -> EntityRenderHandler.render(context, element, this.client, centerX, centerY, finalScale, mouseX, mouseY);
-                case "text" -> GuiElementRenderer.renderText(context, this.textRenderer, element);
-                case "rich_text" -> GuiElementRenderer.renderRichText(context, this.textRenderer, element);
-                case "invisible_button" -> { /* no dibuja nada */ }
-                default -> GuiElementRenderer.renderImage(context, element);
+                case "item_slot" -> GuiElementRenderer.renderItemSlot(context, element, screenWidth, screenHeight, isHovered);
+                case "entity" -> EntityRenderHandler.render(context, element, this.client, screenWidth, screenHeight, finalScale, mouseX, mouseY);
+                case "text" -> GuiElementRenderer.renderText(context, this.textRenderer, element, screenWidth, screenHeight);
+                case "rich_text" -> GuiElementRenderer.renderRichText(context, this.textRenderer, element, screenWidth, screenHeight);
+                case "invisible_button" -> {}
+                default -> GuiElementRenderer.renderImage(context, element, screenWidth, screenHeight);
             }
         }
 
@@ -158,14 +150,17 @@ public class DynamicGuiScreen extends Screen {
         }
 
         if (button == 0) {
-            int centerX = this.width / 2;
-            int centerY = this.height / 2;
+            int screenWidth = this.width;
+            int screenHeight = this.height;
+            int centerX = screenWidth / 2;
+            int centerY = screenHeight / 2;
+
             int adjMouseX = (int) (centerX + (mouseX - centerX) / customScaleModifier);
             int adjMouseY = (int) (centerY + (mouseY - centerY) / customScaleModifier);
 
             for (int i = interactableElements.size() - 1; i >= 0; i--) {
                 GuiElement element = interactableElements.get(i);
-                if (element.isButton && element.isHovered(adjMouseX, adjMouseY)) {
+                if (element.isButton && element.isHovered(adjMouseX, adjMouseY, screenWidth, screenHeight)) {
                     if (element.action != null && actionHandler != null) {
                         actionHandler.accept(element.action);
                     }

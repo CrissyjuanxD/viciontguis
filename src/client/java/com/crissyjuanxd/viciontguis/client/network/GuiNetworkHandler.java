@@ -1,20 +1,15 @@
 package com.crissyjuanxd.viciontguis.client.network;
 
+import com.crissyjuanxd.viciontguis.client.ViciontGuisClient;
 import com.crissyjuanxd.viciontguis.client.gui.DynamicGuiScreen;
-import com.crissyjuanxd.viciontguis.client.gui.GuiTexturePreloader;
+import com.crissyjuanxd.viciontguis.client.gui.GuiElementFactory;
+import com.crissyjuanxd.viciontguis.client.gui.OverlayManager;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.client.MinecraftClient;
 
-/**
- * Registra el payload/canal y conecta los mensajes que manda el plugin con
- * DynamicGuiScreen. Esta es la pieza que reemplaza al menú de prueba hardcodeado
- * en ViciontGuisClient una vez que el plugin del servidor exista.
- * <p>
- * gui_id de la screen actualmente abierta se guarda acá para poder distinguir
- * un UPDATE/CLOSE dirigido a "la GUI que el jugador tiene abierta ahora" de uno
- * viejo que ya no corresponde (ej. el jugador ya cerró y abrió otra).
- */
 public final class GuiNetworkHandler {
 
     private static String currentOpenGuiId = null;
@@ -32,41 +27,40 @@ public final class GuiNetworkHandler {
 
     private static void handle(GuiPayload payload, MinecraftClient client) {
         switch (payload.action()) {
-            case OPEN -> {
-                currentOpenGuiId = payload.guiId();
-                client.setScreen(new DynamicGuiScreen(payload.json(), GuiNetworkHandler::sendAction));
-            }
-            case UPDATE -> {
-                // Solo refrescamos si es la GUI que el jugador tiene abierta ahora mismo.
-                if (payload.guiId().equals(currentOpenGuiId) && client.currentScreen instanceof DynamicGuiScreen) {
-                    client.setScreen(new DynamicGuiScreen(payload.json(), GuiNetworkHandler::sendAction));
+            case OPEN, UPDATE -> {
+                JsonObject guiData = JsonParser.parseString(payload.json()).getAsJsonObject();
+                String target = guiData.has("target") ? guiData.get("target").getAsString() : "screen";
+
+                if ("hud".equals(target) || "inventory".equals(target)) {
+                    GuiElementFactory.ParseResult result = GuiElementFactory.parse(guiData, client.textRenderer);
+                    OverlayManager.addOverlay(payload.guiId(), target, result);
+                } else {
+                    if (payload.action() == GuiPayload.Action.OPEN || (payload.guiId().equals(currentOpenGuiId) && client.currentScreen instanceof DynamicGuiScreen)) {
+                        currentOpenGuiId = payload.guiId();
+                        client.setScreen(new DynamicGuiScreen(payload.json(), GuiNetworkHandler::sendAction));
+                    }
                 }
             }
-            case CLOSE -> {
-                if (payload.guiId().equals(currentOpenGuiId) && client.currentScreen instanceof DynamicGuiScreen screen) {
-                    screen.close();
-                    currentOpenGuiId = null;
+            case CLOSE, DELETE -> {
+                if (!OverlayManager.removeOverlay(payload.guiId())) {
+                    if (payload.guiId().equals(currentOpenGuiId) && client.currentScreen instanceof DynamicGuiScreen screen) {
+                        screen.close();
+                        currentOpenGuiId = null;
+                    }
                 }
             }
         }
     }
 
-    /**
-     * Callback que le pasamos a cada DynamicGuiScreen como actionHandler.
-     * Por ahora solo loguea; acá es donde en el futuro se manda de vuelta al
-     * servidor (vía otro canal C2S) qué botón tocó el jugador, para que el
-     * plugin decida qué hacer (misión completada, receta vista, etc).
-     */
-    private static void sendAction(String action) {
+    public static void sendAction(String action) {
         System.out.println("[ViciontGuis] Acción del jugador: " + action);
-        // TODO: mandar al servidor por un canal C2S propio cuando exista el plugin.
+        // Fix: antes esto no hacía nada más que loggear, por eso el botón
+        // del inventario no abría nada aunque la G sí funcionara.
+        ViciontGuisClient.handleAction(action);
+        // TODO: cuando exista el canal real hacia el plugin, aquí también se envía el packet al server.
     }
 
-    /** Útil para que el mod pida precarga de texturas apenas llega el primer payload. */
-    public static void warmTexturesFor(GuiPayload payload) {
-        // Si más adelante el JSON trae una lista explícita de texturas, se puede
-        // extraer acá y pasarla a GuiTexturePreloader.warmAll(...) antes de
-        // siquiera parsear el resto del payload.
-        GuiTexturePreloader.warmKnown();
+    public static void simulatePayload(String id, String actionStr, String json) {
+        handle(new GuiPayload(GuiPayload.Action.valueOf(actionStr), id, json), MinecraftClient.getInstance());
     }
 }

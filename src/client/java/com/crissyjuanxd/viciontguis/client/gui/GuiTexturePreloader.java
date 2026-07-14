@@ -1,3 +1,4 @@
+/*
 package com.crissyjuanxd.viciontguis.client.gui;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
@@ -19,6 +20,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+*/
 /**
  * FIX del lag de ~2s la primera vez que se abre/cierra una GUI dinámica.
  * <p>
@@ -35,7 +37,8 @@ import java.util.concurrent.Executor;
  * El fix: tocar ambas cosas de antemano, en un momento donde el jugador ya espera algo
  * de carga (arranque del juego / al hacer join al mundo) en vez de en el primer frame
  * de la GUI.
- */
+ *//*
+
 public final class GuiTexturePreloader implements IdentifiableResourceReloadListener {
 
     private static final GuiTexturePreloader INSTANCE = new GuiTexturePreloader();
@@ -53,21 +56,27 @@ public final class GuiTexturePreloader implements IdentifiableResourceReloadList
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> warmEntities(client));
     }
 
-    /** Registra una textura para que se precargue en el próximo warm-up. */
+    */
+/** Registra una textura para que se precargue en el próximo warm-up. *//*
+
     public static void remember(Identifier texture) {
         if (texture != null) {
             KNOWN_TEXTURES.add(texture);
         }
     }
 
-    /** Registra un tipo de entidad (ej. "minecraft:zombie") para bakear su renderer de antemano. */
+    */
+/** Registra un tipo de entidad (ej. "minecraft:zombie") para bakear su renderer de antemano. *//*
+
     public static void rememberEntity(Identifier entityTypeId) {
         if (entityTypeId != null) {
             KNOWN_ENTITY_TYPES.add(entityTypeId);
         }
     }
 
-    /** Llamar apenas se reciba un payload del plugin, antes de que el jugador abra la GUI. */
+    */
+/** Llamar apenas se reciba un payload del plugin, antes de que el jugador abra la GUI. *//*
+
     public static void warmAll(Iterable<Identifier> textures) {
         for (Identifier texture : textures) {
             remember(texture);
@@ -75,7 +84,9 @@ public final class GuiTexturePreloader implements IdentifiableResourceReloadList
         warmAllKnown(MinecraftClient.getInstance());
     }
 
-    /** Fuerza un warm-up inmediato de todo lo que ya se conoce hasta ahora. */
+    */
+/** Fuerza un warm-up inmediato de todo lo que ya se conoce hasta ahora. *//*
+
     public static void warmKnown() {
         MinecraftClient client = MinecraftClient.getInstance();
         warmAllKnown(client);
@@ -126,4 +137,4 @@ public final class GuiTexturePreloader implements IdentifiableResourceReloadList
                 .thenCompose(synchronizer::whenPrepared)
                 .thenRunAsync(() -> warmAllKnown(MinecraftClient.getInstance()), applyExecutor);
     }
-}
+}*/

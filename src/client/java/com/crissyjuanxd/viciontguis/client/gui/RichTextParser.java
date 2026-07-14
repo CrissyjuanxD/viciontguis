@@ -11,23 +11,13 @@ import net.minecraft.text.TextColor;
 
 import java.util.List;
 
-/**
- * Convierte JSON estilo tellraw/vanilla (string, objeto {text,color,bold,...,extra:[...]}
- * o array de componentes) en un Text de Minecraft con sus estilos aplicados,
- * y arma las líneas ya envueltas (wrap) y escaladas para caber en un ancho/alto dado.
- */
 public final class RichTextParser {
 
     private RichTextParser() {}
 
     public static Text parse(JsonElement element) {
-        if (element == null || element.isJsonNull()) {
-            return Text.literal("");
-        }
-
-        if (element.isJsonPrimitive()) {
-            return Text.literal(element.getAsString());
-        }
+        if (element == null || element.isJsonNull()) return Text.literal("");
+        if (element.isJsonPrimitive()) return Text.literal(element.getAsString());
 
         if (element.isJsonArray()) {
             MutableText result = Text.literal("");
@@ -44,9 +34,7 @@ public final class RichTextParser {
 
             Style style = Style.EMPTY;
             if (obj.has("color")) {
-                try {
-                    style = style.withColor(TextColor.parse(obj.get("color").getAsString()).getOrThrow());
-                } catch (Exception ignored) {}
+                try { style = style.withColor(TextColor.parse(obj.get("color").getAsString()).getOrThrow()); } catch (Exception ignored) {}
             }
             if (obj.has("bold")) style = style.withBold(obj.get("bold").getAsBoolean());
             if (obj.has("italic")) style = style.withItalic(obj.get("italic").getAsBoolean());
@@ -62,14 +50,9 @@ public final class RichTextParser {
             }
             return mt;
         }
-
         return Text.literal("");
     }
 
-    /**
-     * Resultado de envolver y (si hace falta) achicar un rich_text para que entre
-     * en un ancho/alto máximo.
-     */
     public record WrappedResult(List<OrderedText> lines, float scale) {}
 
     public static WrappedResult wrapAndScale(TextRenderer textRenderer, JsonElement message, int maxWidth, Integer maxHeight) {

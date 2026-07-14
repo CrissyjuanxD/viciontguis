@@ -18,20 +18,13 @@ import net.minecraft.util.Identifier;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Parsea el JSON que manda el plugin (o el JSON de prueba local) a un modelo
- * de datos ({@link GuiBackground} + lista de {@link GuiElement}) que
- * {@link com.crissyjuanxd.viciontguis.client.gui.DynamicGuiScreen} puede renderizar.
- * <p>
- * Esta clase no dibuja nada ni conoce Screen/DrawContext: solo transforma JSON -> datos.
- */
 public final class GuiElementFactory {
 
     private GuiElementFactory() {}
 
     public record ParseResult(GuiBackground background, List<GuiElement> elements) {}
 
-    public static ParseResult parse(JsonObject guiData, int centerX, int centerY, TextRenderer textRenderer) {
+    public static ParseResult parse(JsonObject guiData, TextRenderer textRenderer) {
         GuiBackground background = null;
         if (guiData.has("background")) {
             JsonObject bg = guiData.getAsJsonObject("background");
@@ -41,25 +34,23 @@ public final class GuiElementFactory {
             int texWidth = bg.has("texture_width") ? bg.get("texture_width").getAsInt() : width;
             int texHeight = bg.has("texture_height") ? bg.get("texture_height").getAsInt() : height;
             background = new GuiBackground(texture, width, height, texWidth, texHeight);
-
-            // Textura conocida de antemano: la precargamos para que no lagee al abrir.
-            GuiTexturePreloader.remember(texture);
         }
 
         List<GuiElement> elements = new ArrayList<>();
         if (guiData.has("elements")) {
             JsonArray elementsJson = guiData.getAsJsonArray("elements");
             for (JsonElement elem : elementsJson) {
-                elements.add(parseElement(elem.getAsJsonObject(), centerX, centerY, textRenderer));
+                elements.add(parseElement(elem.getAsJsonObject(), textRenderer));
             }
         }
 
         return new ParseResult(background, elements);
     }
 
-    private static GuiElement parseElement(JsonObject obj, int centerX, int centerY, TextRenderer textRenderer) {
+    private static GuiElement parseElement(JsonObject obj, TextRenderer textRenderer) {
         String type = obj.get("type").getAsString();
         String id = obj.get("id").getAsString();
+        String anchor = obj.has("anchor") ? obj.get("anchor").getAsString() : "center";
 
         Identifier texture = null;
         ItemStack mcItem = null;
@@ -70,7 +61,6 @@ public final class GuiElementFactory {
         if (type.equals("item_slot") || type.equals("custom_button") || type.equals("image") || type.equals("entity")) {
             if (obj.has("texture")) {
                 texture = Identifier.of(obj.get("texture").getAsString());
-                GuiTexturePreloader.remember(texture);
             }
             if (type.equals("item_slot") && obj.has("item_id")) {
                 String itemIdStr = obj.get("item_id").getAsString();
@@ -95,8 +85,8 @@ public final class GuiElementFactory {
 
         int width = obj.has("width") ? obj.get("width").getAsInt() : 0;
         int height = obj.has("height") ? obj.get("height").getAsInt() : 0;
-        int x = centerX + obj.get("x").getAsInt() - (width / 2);
-        int y = centerY + obj.get("y").getAsInt() - (height / 2);
+        int offsetX = obj.has("x") ? obj.get("x").getAsInt() : 0;
+        int offsetY = obj.has("y") ? obj.get("y").getAsInt() : 0;
 
         int texWidth = obj.has("texture_width") ? obj.get("texture_width").getAsInt() : width;
         int texHeight = obj.has("texture_height") ? obj.get("texture_height").getAsInt() : height;
@@ -145,7 +135,7 @@ public final class GuiElementFactory {
         }
 
         return new GuiElement(
-                id, type, texture, mcItem, x, y, width, height, texWidth, texHeight,
+                id, type, texture, mcItem, anchor, offsetX, offsetY, width, height, texWidth, texHeight,
                 isButton, tooltipLines, action, textContent, textColor, textScale, textBold,
                 entityId, entityName, entityScale, richLines, richColor, richScale
         );
