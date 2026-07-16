@@ -108,21 +108,28 @@ public class DynamicGuiScreen extends Screen {
         RenderSystem.defaultBlendFunc();
 
         if (background != null) {
-            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+            context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F); // <- FIX: Usamos context
             int bgX = centerX - (background.width() / 2);
             int bgY = centerY - (background.height() / 2);
             context.drawTexture(background.texture(), bgX, bgY, 0, 0, background.width(), background.height(), background.texWidth(), background.texHeight());
+            context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         }
 
         for (GuiElement element : interactableElements) {
-            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
 
             boolean isHovered = animScale >= 1.0f && !isClosing && element.isHovered(adjMouseX, adjMouseY, screenWidth, screenHeight);
+
             if (isHovered && !element.type.equals("invisible_button")) {
                 hoveredElement = element;
                 if (element.isButton && !element.type.equals("item_slot") && !element.type.equals("entity")) {
-                    RenderSystem.setShaderColor(0.85F, 0.85F, 0.85F, 1.0F);
+                    context.setShaderColor(0.85F, 0.85F, 0.85F, 1.0F);
+                } else {
+                    context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
                 }
+            } else {
+                context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             }
 
             switch (element.type) {
@@ -133,6 +140,8 @@ public class DynamicGuiScreen extends Screen {
                 case "invisible_button" -> {}
                 default -> GuiElementRenderer.renderImage(context, element, screenWidth, screenHeight);
             }
+
+            context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         }
 
         RenderSystem.disableBlend();

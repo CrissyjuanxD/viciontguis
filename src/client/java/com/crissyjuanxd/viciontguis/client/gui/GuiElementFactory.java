@@ -116,6 +116,7 @@ public final class GuiElementFactory {
         List<OrderedText> richLines = null;
         int richColor = 0xFFFFFF;
         float richScale = 1.0f;
+        boolean richOutline = false;
         if (type.equals("rich_text") && obj.has("message")) {
             if (obj.has("color")) {
                 try {
@@ -128,6 +129,12 @@ public final class GuiElementFactory {
                 RichTextParser.WrappedResult wrapped = RichTextParser.wrapAndScale(textRenderer, obj.get("message"), maxWidth, maxHeight);
                 richLines = wrapped.lines();
                 richScale = wrapped.scale();
+                if (obj.has("scale")) {
+                    richScale = obj.get("scale").getAsFloat();
+                }
+                if (obj.has("outline")) {
+                    richOutline = obj.get("outline").getAsBoolean();
+                }
             } catch (Exception e) {
                 System.err.println("Error parseando rich_text '" + id + "': " + e.getMessage());
                 richLines = textRenderer.wrapLines(Text.literal("Error al leer el mensaje."), 300);
@@ -137,7 +144,7 @@ public final class GuiElementFactory {
         return new GuiElement(
                 id, type, texture, mcItem, anchor, offsetX, offsetY, width, height, texWidth, texHeight,
                 isButton, tooltipLines, action, textContent, textColor, textScale, textBold,
-                entityId, entityName, entityScale, richLines, richColor, richScale
+                entityId, entityName, entityScale, richLines, richColor, richScale, richOutline
         );
     }
 

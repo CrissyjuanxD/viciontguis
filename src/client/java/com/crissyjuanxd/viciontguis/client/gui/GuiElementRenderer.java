@@ -72,9 +72,24 @@ public final class GuiElementRenderer {
         context.getMatrices().scale(element.richScale, element.richScale, 1.0f);
 
         int ly = 0;
-        for (OrderedText line : element.richLines) {
-            context.drawText(textRenderer, line, 0, ly, element.richColor, true);
-            ly += lineHeight;
+
+        if (element.richOutline) {
+            int outlineColor = 0xFF000000;
+
+            for (OrderedText line : element.richLines) {
+                context.drawText(textRenderer, line, -1, ly, outlineColor, false);
+                context.drawText(textRenderer, line, 1, ly, outlineColor, false);
+                context.drawText(textRenderer, line, 0, ly - 1, outlineColor, false);
+                context.drawText(textRenderer, line, 0, ly + 1, outlineColor, false);
+
+                context.drawText(textRenderer, line, 0, ly, element.richColor, false);
+                ly += lineHeight;
+            }
+        } else {
+            for (OrderedText line : element.richLines) {
+                context.drawText(textRenderer, line, 0, ly, element.richColor, true);
+                ly += lineHeight;
+            }
         }
 
         context.getMatrices().pop();

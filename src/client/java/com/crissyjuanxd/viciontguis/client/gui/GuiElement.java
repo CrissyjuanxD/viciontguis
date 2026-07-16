@@ -37,6 +37,8 @@ public class GuiElement {
     public final int richColor;
     public final float richScale;
 
+    public final boolean richOutline;
+
     LivingEntity cachedEntity = null;
     boolean entityInitAttempted = false;
 
@@ -44,7 +46,7 @@ public class GuiElement {
                       int texWidth, int texHeight, boolean isButton, List<Text> tooltipLines, String action,
                       String text, int textColor, float textScale, boolean textBold,
                       String entityId, String entityName, int entityScale,
-                      List<OrderedText> richLines, int richColor, float richScale) {
+                      List<OrderedText> richLines, int richColor, float richScale, boolean richOutline) {
         this.id = id;
         this.type = type;
         this.texture = texture;
@@ -69,6 +71,7 @@ public class GuiElement {
         this.richLines = richLines;
         this.richColor = richColor;
         this.richScale = richScale;
+        this.richOutline = richOutline;
     }
 
     public int getBaseX(int screenWidth) {

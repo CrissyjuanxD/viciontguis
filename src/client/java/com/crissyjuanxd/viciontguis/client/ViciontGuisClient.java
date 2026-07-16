@@ -22,26 +22,26 @@ import java.util.Map;
 @Environment(EnvType.CLIENT)
 public class ViciontGuisClient implements ClientModInitializer {
 
-    private static KeyBinding testGuiKey;
+    private static KeyBinding GuiKey;
 
-    private static final int CAMBIOS_COLS = 4;
+/*    private static final int CAMBIOS_COLS = 4;
     private static final int CAMBIOS_ROWS = 4;
     private static final Map<Integer, Boolean> cambiosLeidos = new HashMap<>();
-    private static final Map<Integer, String> cambiosMensajes = new HashMap<>();
+    private static final Map<Integer, String> cambiosMensajes = new HashMap<>();*/
 
-    static {
+/*    static {
         cambiosMensajes.put(1, "[\"\",{\"text\":\"\\u06de\",\"bold\":true,\"color\":\"yellow\"},{\"text\":\" Cambio de dificultad\",\"bold\":true,\"color\":\"#E69F33\"},{\"text\":\" \\u25ba\",\"bold\":true,\"color\":\"gray\"},{\"text\":\"\\n\\n\"},{\"text\":\"Ejemplo de Json message de Minecraft vanilla\\nque se puede poner en un\",\"color\":\"#6DBAEC\"},{\"text\":\" tellraw\",\"bold\":true,\"color\":\"#E08C0E\"}]");
         cambiosMensajes.put(2, "[\"\",{\"text\":\"\\u2694\",\"bold\":true,\"color\":\"red\"},{\"text\":\" Cambio de combate\",\"bold\":true,\"color\":\"#E74C3C\"},{\"text\":\" \\u25ba\",\"bold\":true,\"color\":\"gray\"},{\"text\":\"\\n\\n\"},{\"text\":\"Se ha reducido el daño base de las espadas en un 10% para balancear el PvP del servidor. Ademas, el cooldown de los escudos ahora dura 0.5 segundos menos.\",\"color\":\"#FFFFFF\"},{\"text\":\"\\n\\n\"},{\"text\":\"Esto aplica a todas las espadas, incluidas las corruptas.\",\"color\":\"#AAAAAA\",\"italic\":true}]");
         cambiosMensajes.put(3, "[\"\",{\"text\":\"\\u2699\",\"bold\":true,\"color\":\"aqua\"},{\"text\":\" Rework del sistema de misiones\",\"bold\":true,\"color\":\"#3498DB\"},{\"text\":\" \\u25ba\",\"bold\":true,\"color\":\"gray\"},{\"text\":\"\\n\\n\"},{\"text\":\"Hemos reescrito por completo el sistema de misiones desde cero para mejorar el rendimiento del servidor y arreglar bugs historicos. A continuacion un resumen extenso de todos los cambios.\",\"color\":\"#FFFFFF\"},{\"text\":\"\\n\\n\"},{\"text\":\"1. Las misiones ahora se guardan por jugador en una base de datos separada.\\n2. Se corrigio un bug donde el progreso se reiniciaba al reconectar.\\n3. Las recompensas ahora pueden incluir items con custom model data.\\n4. Se agrego soporte para misiones diarias y semanales.\\n5. El menu de misiones ahora carga instantaneamente.\",\"color\":\"#DDDDDD\"},{\"text\":\"\\n\\n\"},{\"text\":\"Si encuentran algun bug reportenlo en el Discord del servidor.\",\"color\":\"#F1C40F\",\"italic\":true}]");
         cambiosMensajes.put(4, "[\"\",{\"text\":\"\\u2302\",\"bold\":true,\"color\":\"green\"},{\"text\":\" Cambios en SistemaTumbas\",\"bold\":true,\"color\":\"#2ECC71\"},{\"text\":\" \\u25ba\",\"bold\":true,\"color\":\"gray\"},{\"text\":\"\\n\\n\"},{\"text\":\"Las tumbas ahora se generan correctamente incluso si mueres en el aire, y el temporizador ya no se corrompe visualmente al usar fuentes personalizadas.\",\"color\":\"#FFFFFF\"}]");
-    }
+    }*/
 
     @Override
     public void onInitializeClient() {
         OverlayManager.init();
         GuiNetworkHandler.register();
 
-        testGuiKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        GuiKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "Abrir Menu Principal",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_G,
@@ -49,25 +49,25 @@ public class ViciontGuisClient implements ClientModInitializer {
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            while (testGuiKey.wasPressed()) {
+            while (GuiKey.wasPressed()) {
                 if (client.currentScreen instanceof DynamicGuiScreen) {
                     ((DynamicGuiScreen) client.currentScreen).close();
                 } else if (client.currentScreen == null) {
-                    openMainMenu(client);
+                    GuiNetworkHandler.sendAction(null, "open_main");
                 }
             }
         });
 
         // Evento: Al entrar al mundo o servidor, simulamos la llegada de los overlays desde el plugin
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+/*        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             client.execute(() -> {
                 GuiNetworkHandler.simulatePayload("hud_test", "OPEN", getHudEjemploJson());
                 GuiNetworkHandler.simulatePayload("inv_test", "OPEN", getInvEjemploJson());
             });
-        });
+        });*/
     }
 
-    public static void handleAction(String action) {
+   /* public static void handleAction(String action) {
         MinecraftClient client = MinecraftClient.getInstance();
         if ("open_misiones".equals(action)) {
             client.setScreen(new DynamicGuiScreen(getMisionesJson(), ViciontGuisClient::handleAction));
@@ -124,7 +124,7 @@ public class ViciontGuisClient implements ClientModInitializer {
                 {"text": "100", "color": "#A777E9"},
                 {"text": "%", "color": "#FFFFFF"}
               ],
-              "anchor": "bottom_center", "x": 95, "y": -16, "scale": 1.0
+              "anchor": "bottom_center", "x": 95, "y": -15, "scale": 1.0
             }
           ]
         }
@@ -140,8 +140,8 @@ public class ViciontGuisClient implements ClientModInitializer {
                 {
                   "id": "btn_center", "type": "custom_button", "texture": "viciontguis:textures/gui/center.png",
                   "action": "open_main",
-                  "anchor": "center", "x": 55, "y": -10, "width": 16, "height": 16,
-                  "tooltip": [{"text": "Viciont Menú", "color": "#00FF00"}]
+                  "anchor": "center", "x": 50, "y": -12, "width": 16, "height": 16,
+                  "tooltip": [{"text": "Viciont Menú", "color": "#7511CD"}]
                 }
               ]
             }
@@ -161,7 +161,7 @@ public class ViciontGuisClient implements ClientModInitializer {
                   "id": "btn_misiones", "type": "custom_button", "texture": "viciontguis:textures/gui/misiones.png",
                   "action": "open_misiones",
                   "x": 0, "y": -110, "width": 64, "height": 64,
-                  "tooltip": [{"text": "Misiones", "color": "#A349A4"}]
+                  "tooltip": [{"text": "Misiones", "color": "#B263F9"}]
                 },
                 {
                   "id": "btn_entidades", "type": "custom_button", "texture": "viciontguis:textures/gui/entidades.png",
@@ -179,7 +179,7 @@ public class ViciontGuisClient implements ClientModInitializer {
                   "id": "btn_recetas", "type": "custom_button", "texture": "viciontguis:textures/gui/recetas.png",
                   "action": "open_recetas",
                   "x": 110, "y": 0, "width": 64, "height": 64,
-                  "tooltip": [{"text": "Recetas", "color": "#22B14C"}]
+                  "tooltip": [{"text": "Recetas", "color": "#4EF27E"}]
                 },
                 {
                   "id": "btn_fiesta_logros", "type": "custom_button", "texture": "viciontguis:textures/gui/fiestalogros.png",
@@ -347,5 +347,5 @@ public class ViciontGuisClient implements ClientModInitializer {
 
     private static String getRecipeOverlayRunicTable() {
         return "{ \"gui_id\": \"overlay_runic\", \"background\": { \"texture\": \"viciontguis:textures/gui/fondo_crafteos.png\", \"width\": 340, \"height\": 260 }, \"elements\": [ { \"id\": \"bg_close\", \"type\": \"invisible_button\", \"action\": \"open_recetas\", \"x\": 0, \"y\": 0, \"width\": 2000, \"height\": 2000 }, { \"id\": \"titulo\", \"type\": \"text\", \"text\": \"Mesa Runica\", \"x\": 0, \"y\": -100, \"color\": \"#FFFFFF\", \"scale\": 1.6, \"bold\": true }, { \"id\": \"slot_1\", \"type\": \"item_slot\", \"texture\": \"viciontguis:textures/gui/marco_item.png\", \"item_id\": \"minecraft:netherite_chestplate\", \"x\": -120, \"y\": 8, \"width\": 32, \"height\": 32, \"tooltip\": [{\"text\": \"Netherite Chestplate\", \"color\": \"#FFFFFF\"}] }, { \"id\": \"slot_3\", \"type\": \"item_slot\", \"texture\": \"viciontguis:textures/gui/marco_item.png\", \"item_id\": \"minecraft:echo_shard\", \"custom_model_data\": 305, \"x\": -80, \"y\": 8, \"width\": 32, \"height\": 32, \"tooltip\": [{\"text\": \"Chestplate Netherite Upgrade\", \"color\": \"#cc3366\", \"bold\": true}] }, { \"id\": \"slot_5\", \"type\": \"item_slot\", \"texture\": \"viciontguis:textures/gui/marco_item.png\", \"item_id\": \"minecraft:echo_shard\", \"x\": -40, \"y\": 8, \"width\": 32, \"height\": 32, \"tooltip\": [{\"text\": \"Echo Shard\", \"color\": \"#FFFFFF\"}] }, { \"id\": \"slot_7\", \"type\": \"item_slot\", \"texture\": \"viciontguis:textures/gui/marco_item.png\", \"item_id\": \"minecraft:netherite_ingot\", \"custom_model_data\": 5, \"x\": 0, \"y\": 8, \"width\": 32, \"height\": 32, \"tooltip\": [{\"text\": \"Corrupted Netherite Ingot\", \"color\": \"#9900cc\", \"bold\": true}] }, { \"id\": \"arrow\", \"type\": \"image\", \"texture\": \"viciontguis:textures/gui/flecha_der.png\", \"x\": 40, \"y\": 8, \"width\": 24, \"height\": 24 }, { \"id\": \"res\", \"type\": \"item_slot\", \"texture\": \"viciontguis:textures/gui/marco_item.png\", \"item_id\": \"minecraft:netherite_chestplate\", \"custom_model_data\": 2, \"x\": 90, \"y\": 8, \"width\": 40, \"height\": 40, \"tooltip\": [{\"text\": \"Corrupted Netherite Chestplate\", \"color\": \"#9966ff\", \"bold\": true}] } ] }";
-    }
+    }*/
 }

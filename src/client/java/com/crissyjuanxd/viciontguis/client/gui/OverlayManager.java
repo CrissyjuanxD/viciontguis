@@ -2,6 +2,7 @@ package com.crissyjuanxd.viciontguis.client.gui;
 
 import com.crissyjuanxd.viciontguis.client.mixin.HandledScreenMixin;
 import com.crissyjuanxd.viciontguis.client.network.GuiNetworkHandler;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
@@ -90,7 +91,10 @@ public final class OverlayManager {
         int sw = context.getScaledWindowWidth();
         int sh = context.getScaledWindowHeight();
 
-        // Efecto hover (solo en inventario)
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+
         if (isHovered && isInventory && element.isButton && !element.type.equals("item_slot") && !element.type.equals("entity")) {
             context.fill(element.getRenderX(sw, shiftX), element.getRenderY(sh, shiftY),
                     element.getRenderX(sw, shiftX) + element.width, element.getRenderY(sh, shiftY) + element.height, 0x40000000);
@@ -104,6 +108,8 @@ public final class OverlayManager {
             case "invisible_button" -> {}
             default -> GuiElementRenderer.renderImage(context, element, sw, sh, shiftX, shiftY);
         }
+
+        context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
     private static boolean handleInventoryClick(Screen screen, double mouseX, double mouseY, int button) {
@@ -115,10 +121,10 @@ public final class OverlayManager {
             shiftY = (accessor.getY() + accessor.getBackgroundHeight() / 2) - (screen.height / 2);
         }
 
-        for (GuiElementFactory.ParseResult overlay : invOverlays.values()) {
-            for (GuiElement element : overlay.elements()) {
+        for (Map.Entry<String, GuiElementFactory.ParseResult> entry : invOverlays.entrySet()) {
+            for (GuiElement element : entry.getValue().elements()) {
                 if (element.isButton && element.isHovered((int) mouseX, (int) mouseY, screen.width, screen.height, shiftX, shiftY)) {
-                    if (element.action != null) GuiNetworkHandler.sendAction(element.action);
+                    if (element.action != null) GuiNetworkHandler.sendAction(entry.getKey(), element.action); // ahora con guiId
                     return false;
                 }
             }
