@@ -11,6 +11,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.OrderedText;
+import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 import net.minecraft.text.TextColor;
 import net.minecraft.util.Identifier;
@@ -156,15 +157,112 @@ public final class GuiElementFactory {
         for (JsonElement lineElem : lines) {
             JsonObject lineObj = lineElem.getAsJsonObject();
             String txt = lineObj.has("text") ? lineObj.get("text").getAsString() : "";
+
+            // 1. Detectar si el texto es un JSON crudo (Sistema Misiones)
+            if (txt.startsWith("[") || txt.startsWith("{")) {
+                try {
+                    JsonElement jsonElement = com.google.gson.JsonParser.parseString(txt);
+                    tooltipLines.add(RichTextParser.parse(jsonElement));
+                    continue; // Se saltará el resto del código y pasará a la siguiente línea
+                } catch (Exception ignored) {}
+            }
+
+            // 2. Si es texto normal, analizamos los códigos "ChatColor" que vienen de Bukkit (Sistema Entidades)
+            MutableText mt = parseLegacyString(txt);
+
             String color = lineObj.has("color") ? lineObj.get("color").getAsString() : "#FFFFFF";
             boolean bold = lineObj.has("bold") && lineObj.get("bold").getAsBoolean();
 
-            MutableText mt = Text.literal(txt);
             try {
                 mt.setStyle(mt.getStyle().withColor(TextColor.parse(color).getOrThrow()).withBold(bold));
             } catch (Exception ignored) {}
+
             tooltipLines.add(mt);
         }
         return tooltipLines;
+    }
+
+    // El Traductor Maestro de ChatColor a Fabric Text Components
+    private static MutableText parseLegacyString(String text) {
+        MutableText root = Text.empty();
+        StringBuilder currentText = new StringBuilder();
+        Style currentStyle = Style.EMPTY;
+
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+
+            // Si detecta un símbolo de color (§)
+            if (c == '§' && i + 1 < text.length()) {
+                char nextChar = Character.toLowerCase(text.charAt(i + 1));
+
+                // Sistema avanzado para leer Hexadecimales de BungeeCord (§x§R§R§G§G§B§B)
+                if (nextChar == 'x' && i + 13 < text.length()) {
+                    if (currentText.length() > 0) {
+                        root.append(Text.literal(currentText.toString()).setStyle(currentStyle));
+                        currentText.setLength(0);
+                    }
+
+                    // Extraemos los 6 caracteres ocultos entre los símbolos §
+                    StringBuilder hex = new StringBuilder("#");
+                    hex.append(text.charAt(i+3));
+                    hex.append(text.charAt(i+5));
+                    hex.append(text.charAt(i+7));
+                    hex.append(text.charAt(i+9));
+                    hex.append(text.charAt(i+11));
+                    hex.append(text.charAt(i+13));
+
+                    try {
+                        currentStyle = currentStyle.withColor(TextColor.parse(hex.toString()).getOrThrow());
+                    } catch (Exception ignored) {}
+
+                    i += 13; // Saltamos todo el bloque codificado
+                    continue;
+
+                } else if ("0123456789abcdefklmnor".indexOf(nextChar) != -1) {
+                    // Sistema clásico para leer los colores básicos de Minecraft (Ej: §a, §b, §l)
+                    if (currentText.length() > 0) {
+                        root.append(Text.literal(currentText.toString()).setStyle(currentStyle));
+                        currentText.setLength(0);
+                    }
+                    switch (nextChar) {
+                        case '0' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.BLACK);
+                        case '1' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.DARK_BLUE);
+                        case '2' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.DARK_GREEN);
+                        case '3' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.DARK_AQUA);
+                        case '4' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.DARK_RED);
+                        case '5' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.DARK_PURPLE);
+                        case '6' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.GOLD);
+                        case '7' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.GRAY);
+                        case '8' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.DARK_GRAY);
+                        case '9' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.BLUE);
+                        case 'a' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.GREEN);
+                        case 'b' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.AQUA);
+                        case 'c' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.RED);
+                        case 'd' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.LIGHT_PURPLE);
+                        case 'e' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.YELLOW);
+                        case 'f' -> currentStyle = currentStyle.withColor(net.minecraft.util.Formatting.WHITE);
+                        case 'k' -> currentStyle = currentStyle.withObfuscated(true);
+                        case 'l' -> currentStyle = currentStyle.withBold(true);
+                        case 'm' -> currentStyle = currentStyle.withStrikethrough(true);
+                        case 'n' -> currentStyle = currentStyle.withUnderline(true);
+                        case 'o' -> currentStyle = currentStyle.withItalic(true);
+                        case 'r' -> currentStyle = Style.EMPTY;
+                    }
+                    i++;
+                    continue;
+                }
+            }
+            currentText.append(c);
+        }
+
+        if (currentText.length() > 0) {
+            root.append(Text.literal(currentText.toString()).setStyle(currentStyle));
+        }
+
+        // Si no tenía ningún color personalizado, devolvemos el texto plano para que reciba el color base
+        if (root.getSiblings().isEmpty()) {
+            return Text.literal(currentText.toString());
+        }
+        return root;
     }
 }

@@ -47,10 +47,6 @@ public class DynamicGuiScreen extends Screen {
         }
 
         try {
-            // OPTIMIZACIÓN: cada apertura de menú instanciaba un Gson nuevo solo para
-            // parsear un JSON en un JsonObject. JsonParser.parseString hace lo mismo
-            // sin construir un objeto Gson completo (que internamente arma su propia
-            // configuración de adapters) cada vez que el jugador cambia de pantalla.
             JsonObject guiData = JsonParser.parseString(jsonPayload).getAsJsonObject();
             GuiElementFactory.ParseResult result = GuiElementFactory.parse(guiData, this.textRenderer);
             this.background = result.background();
@@ -98,6 +94,7 @@ public class DynamicGuiScreen extends Screen {
         int adjMouseY = (int) (centerY + (mouseY - centerY) / customScaleModifier);
 
         GuiElement hoveredElement = null;
+        int currentZ = 0;
 
         context.getMatrices().push();
         context.getMatrices().translate(centerX, centerY, 0);
@@ -119,10 +116,15 @@ public class DynamicGuiScreen extends Screen {
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
 
+            context.getMatrices().push();
+            context.getMatrices().translate(0, 0, currentZ);
+
             boolean isHovered = animScale >= 1.0f && !isClosing && element.isHovered(adjMouseX, adjMouseY, screenWidth, screenHeight);
 
             if (isHovered && !element.type.equals("invisible_button")) {
-                hoveredElement = element;
+                if (element.isButton || (element.tooltipLines != null && !element.tooltipLines.isEmpty())) {
+                    hoveredElement = element;
+                }
                 if (element.isButton && !element.type.equals("item_slot") && !element.type.equals("entity")) {
                     context.setShaderColor(0.85F, 0.85F, 0.85F, 1.0F);
                 } else {
@@ -134,13 +136,20 @@ public class DynamicGuiScreen extends Screen {
 
             switch (element.type) {
                 case "item_slot" -> GuiElementRenderer.renderItemSlot(context, element, screenWidth, screenHeight, isHovered);
-                case "entity" -> EntityRenderHandler.render(context, element, this.client, screenWidth, screenHeight, finalScale, mouseX, mouseY);
+                case "entity" -> {
+                    context.getMatrices().pop();
+                    EntityRenderHandler.render(context, element, this.client, screenWidth, screenHeight, finalScale, mouseX, mouseY);
+                    context.getMatrices().push();
+                    context.getMatrices().translate(0, 0, currentZ);
+                }
                 case "text" -> GuiElementRenderer.renderText(context, this.textRenderer, element, screenWidth, screenHeight);
                 case "rich_text" -> GuiElementRenderer.renderRichText(context, this.textRenderer, element, screenWidth, screenHeight);
                 case "invisible_button" -> {}
                 default -> GuiElementRenderer.renderImage(context, element, screenWidth, screenHeight);
             }
 
+            context.getMatrices().pop();
+            currentZ += 10;
             context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         }
 
