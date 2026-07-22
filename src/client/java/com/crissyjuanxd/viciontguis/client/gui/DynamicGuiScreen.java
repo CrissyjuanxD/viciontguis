@@ -56,6 +56,19 @@ public class DynamicGuiScreen extends Screen {
         }
     }
 
+    // NUEVO MÉTODO: Actualiza los elementos sin reiniciar la animación
+    public void updateData(String newJsonPayload) {
+        try {
+            JsonObject guiData = JsonParser.parseString(newJsonPayload).getAsJsonObject();
+            GuiElementFactory.ParseResult result = GuiElementFactory.parse(guiData, this.textRenderer);
+            this.background = result.background();
+            this.interactableElements.clear();
+            this.interactableElements.addAll(result.elements());
+        } catch (Exception e) {
+            System.err.println("Error parseando el JSON en update: " + e.getMessage());
+        }
+    }
+
     @Override
     public void tick() {
         if (isClosing && Util.getMeasuringTimeMs() - animationStartTime >= ANIM_DURATION_MS) {
@@ -105,7 +118,7 @@ public class DynamicGuiScreen extends Screen {
         RenderSystem.defaultBlendFunc();
 
         if (background != null) {
-            context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F); // <- FIX: Usamos context
+            context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             int bgX = centerX - (background.width() / 2);
             int bgY = centerY - (background.height() / 2);
             context.drawTexture(background.texture(), bgX, bgY, 0, 0, background.width(), background.height(), background.texWidth(), background.texHeight());
@@ -157,7 +170,18 @@ public class DynamicGuiScreen extends Screen {
         context.getMatrices().pop();
 
         if (hoveredElement != null && !hoveredElement.tooltipLines.isEmpty()) {
-            context.drawTooltip(this.textRenderer, hoveredElement.tooltipLines, mouseX, mouseY);
+            List<net.minecraft.text.OrderedText> wrappedTooltip = new ArrayList<>();
+            for (net.minecraft.text.Text line : hoveredElement.tooltipLines) {
+                if (line.getString().isEmpty()) {
+                    wrappedTooltip.add(net.minecraft.text.OrderedText.EMPTY);
+                } else {
+                    wrappedTooltip.addAll(this.textRenderer.wrapLines(line, 1000));
+                }
+            }
+            context.getMatrices().push();
+            context.getMatrices().translate(0, 0, 1000);
+            context.drawOrderedTooltip(this.textRenderer, wrappedTooltip, mouseX, mouseY);
+            context.getMatrices().pop();
         }
     }
 

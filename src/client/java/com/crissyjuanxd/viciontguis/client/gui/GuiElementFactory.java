@@ -23,7 +23,8 @@ public final class GuiElementFactory {
 
     private GuiElementFactory() {}
 
-    public record ParseResult(GuiBackground background, List<GuiElement> elements) {}
+    // NUEVO: Añadido boolean fixedScale al Record
+    public record ParseResult(GuiBackground background, List<GuiElement> elements, boolean fixedScale) {}
 
     public static ParseResult parse(JsonObject guiData, TextRenderer textRenderer) {
         GuiBackground background = null;
@@ -45,7 +46,10 @@ public final class GuiElementFactory {
             }
         }
 
-        return new ParseResult(background, elements);
+        // NUEVO: Leemos del JSON si tiene la propiedad activa
+        boolean fixedScale = guiData.has("fixed_scale") && guiData.get("fixed_scale").getAsBoolean();
+
+        return new ParseResult(background, elements, fixedScale);
     }
 
     private static GuiElement parseElement(JsonObject obj, TextRenderer textRenderer) {
@@ -89,13 +93,15 @@ public final class GuiElementFactory {
         int offsetX = obj.has("x") ? obj.get("x").getAsInt() : 0;
         int offsetY = obj.has("y") ? obj.get("y").getAsInt() : 0;
 
+        float animSpeed = obj.has("anim_speed") ? obj.get("anim_speed").getAsFloat() : 0f;
+
         int texWidth = obj.has("texture_width") ? obj.get("texture_width").getAsInt() : width;
         int texHeight = obj.has("texture_height") ? obj.get("texture_height").getAsInt() : height;
 
         boolean isButton = type.equals("custom_button") || type.equals("item_slot") || type.equals("invisible_button") || type.equals("entity");
         String action = obj.has("action") ? obj.get("action").getAsString() : null;
 
-        List<Text> tooltipLines = parseTooltip(obj);
+        List<Text> tooltipLines = parseTooltip(obj, mcItem);
 
         String textContent = null;
         int textColor = 0xFFFFFF;
@@ -145,11 +151,11 @@ public final class GuiElementFactory {
         return new GuiElement(
                 id, type, texture, mcItem, anchor, offsetX, offsetY, width, height, texWidth, texHeight,
                 isButton, tooltipLines, action, textContent, textColor, textScale, textBold,
-                entityId, entityName, entityScale, richLines, richColor, richScale, richOutline
+                entityId, entityName, entityScale, richLines, richColor, richScale, richOutline, animSpeed
         );
     }
 
-    private static List<Text> parseTooltip(JsonObject obj) {
+    private static List<Text> parseTooltip(JsonObject obj, ItemStack mcItem) {
         List<Text> tooltipLines = new ArrayList<>();
         if (!obj.has("tooltip")) return tooltipLines;
 
@@ -157,17 +163,20 @@ public final class GuiElementFactory {
         for (JsonElement lineElem : lines) {
             JsonObject lineObj = lineElem.getAsJsonObject();
             String txt = lineObj.has("text") ? lineObj.get("text").getAsString() : "";
+            
+            if (txt.equalsIgnoreCase("default") && mcItem != null && !mcItem.isEmpty()) {
+                tooltipLines.add(mcItem.getName());
+                continue;
+            }
 
-            // 1. Detectar si el texto es un JSON crudo (Sistema Misiones)
             if (txt.startsWith("[") || txt.startsWith("{")) {
                 try {
                     JsonElement jsonElement = com.google.gson.JsonParser.parseString(txt);
                     tooltipLines.add(RichTextParser.parse(jsonElement));
-                    continue; // Se saltará el resto del código y pasará a la siguiente línea
+                    continue;
                 } catch (Exception ignored) {}
             }
 
-            // 2. Si es texto normal, analizamos los códigos "ChatColor" que vienen de Bukkit (Sistema Entidades)
             MutableText mt = parseLegacyString(txt);
 
             String color = lineObj.has("color") ? lineObj.get("color").getAsString() : "#FFFFFF";
@@ -182,7 +191,6 @@ public final class GuiElementFactory {
         return tooltipLines;
     }
 
-    // El Traductor Maestro de ChatColor a Fabric Text Components
     private static MutableText parseLegacyString(String text) {
         MutableText root = Text.empty();
         StringBuilder currentText = new StringBuilder();
@@ -191,18 +199,15 @@ public final class GuiElementFactory {
         for (int i = 0; i < text.length(); i++) {
             char c = text.charAt(i);
 
-            // Si detecta un símbolo de color (§)
             if (c == '§' && i + 1 < text.length()) {
                 char nextChar = Character.toLowerCase(text.charAt(i + 1));
 
-                // Sistema avanzado para leer Hexadecimales de BungeeCord (§x§R§R§G§G§B§B)
                 if (nextChar == 'x' && i + 13 < text.length()) {
                     if (currentText.length() > 0) {
                         root.append(Text.literal(currentText.toString()).setStyle(currentStyle));
                         currentText.setLength(0);
                     }
 
-                    // Extraemos los 6 caracteres ocultos entre los símbolos §
                     StringBuilder hex = new StringBuilder("#");
                     hex.append(text.charAt(i+3));
                     hex.append(text.charAt(i+5));
@@ -215,11 +220,10 @@ public final class GuiElementFactory {
                         currentStyle = currentStyle.withColor(TextColor.parse(hex.toString()).getOrThrow());
                     } catch (Exception ignored) {}
 
-                    i += 13; // Saltamos todo el bloque codificado
+                    i += 13;
                     continue;
 
                 } else if ("0123456789abcdefklmnor".indexOf(nextChar) != -1) {
-                    // Sistema clásico para leer los colores básicos de Minecraft (Ej: §a, §b, §l)
                     if (currentText.length() > 0) {
                         root.append(Text.literal(currentText.toString()).setStyle(currentStyle));
                         currentText.setLength(0);
@@ -259,7 +263,6 @@ public final class GuiElementFactory {
             root.append(Text.literal(currentText.toString()).setStyle(currentStyle));
         }
 
-        // Si no tenía ningún color personalizado, devolvemos el texto plano para que reciba el color base
         if (root.getSiblings().isEmpty()) {
             return Text.literal(currentText.toString());
         }

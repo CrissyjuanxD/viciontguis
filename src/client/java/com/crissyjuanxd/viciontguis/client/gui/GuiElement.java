@@ -18,7 +18,12 @@ public class GuiElement {
     public final Identifier texture;
     public final ItemStack mcItem;
 
-    public final int offsetX, offsetY, width, height;
+    // Mutables para la animación del HUD
+    public int offsetX, offsetY;
+    public final int targetOffsetX, targetOffsetY;
+    public final float animSpeed;
+
+    public final int width, height;
     public final int texWidth, texHeight;
 
     public final boolean isButton;
@@ -46,14 +51,20 @@ public class GuiElement {
                       int texWidth, int texHeight, boolean isButton, List<Text> tooltipLines, String action,
                       String text, int textColor, float textScale, boolean textBold,
                       String entityId, String entityName, int entityScale,
-                      List<OrderedText> richLines, int richColor, float richScale, boolean richOutline) {
+                      List<OrderedText> richLines, int richColor, float richScale, boolean richOutline, float animSpeed) {
         this.id = id;
         this.type = type;
         this.texture = texture;
         this.mcItem = mcItem;
         this.anchor = anchor;
+
+        // Setup de animación
         this.offsetX = offsetX;
         this.offsetY = offsetY;
+        this.targetOffsetX = offsetX;
+        this.targetOffsetY = offsetY;
+        this.animSpeed = animSpeed;
+
         this.width = width;
         this.height = height;
         this.texWidth = texWidth;
@@ -92,8 +103,6 @@ public class GuiElement {
         };
     }
 
-    // OPTIMIZACIÓN + fix del shift: un único lugar que calcula rx/ry,
-    // en vez de que cada método de render lo recalculara por su cuenta.
     public int getRenderX(int screenWidth, int shiftX) {
         return getBaseX(screenWidth) + shiftX + offsetX - (width / 2);
     }
@@ -106,8 +115,6 @@ public class GuiElement {
         return isHovered(mouseX, mouseY, screenWidth, screenHeight, 0, 0);
     }
 
-    // Nueva variante: permite desplazar el hitbox junto con el panel
-    // (usada cuando el libro de recetas mueve el InventoryScreen).
     public boolean isHovered(int mouseX, int mouseY, int screenWidth, int screenHeight, int shiftX, int shiftY) {
         int rx = getRenderX(screenWidth, shiftX);
         int ry = getRenderY(screenHeight, shiftY);

@@ -22,7 +22,7 @@ import java.util.Map;
 @Environment(EnvType.CLIENT)
 public class ViciontGuisClient implements ClientModInitializer {
 
-    private static KeyBinding GuiKey;
+    public static KeyBinding GuiKey;
 
 /*    private static final int CAMBIOS_COLS = 4;
     private static final int CAMBIOS_ROWS = 4;
