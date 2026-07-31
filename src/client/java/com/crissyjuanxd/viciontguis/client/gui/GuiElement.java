@@ -18,7 +18,6 @@ public class GuiElement {
     public final Identifier texture;
     public final ItemStack mcItem;
 
-    // Mutables para la animación del HUD
     public int offsetX, offsetY;
     public final int targetOffsetX, targetOffsetY;
     public final float animSpeed;
@@ -33,6 +32,7 @@ public class GuiElement {
     public final int textColor;
     public final float textScale;
     public final boolean textBold;
+    public final String textAlign;
 
     public final String entityId;
     public final String entityName;
@@ -41,24 +41,31 @@ public class GuiElement {
     public final List<OrderedText> richLines;
     public final int richColor;
     public final float richScale;
-
     public final boolean richOutline;
+
+    public final String hoverSound;
+    public final float hoverPitch;
+    public final float hoverVolume;
+    public final String clickSound;
+    public final float clickPitch;
+    public final float clickVolume;
+    public boolean wasHovered = false;
 
     LivingEntity cachedEntity = null;
     boolean entityInitAttempted = false;
 
     public GuiElement(String id, String type, Identifier texture, ItemStack mcItem, String anchor, int offsetX, int offsetY, int width, int height,
                       int texWidth, int texHeight, boolean isButton, List<Text> tooltipLines, String action,
-                      String text, int textColor, float textScale, boolean textBold,
+                      String text, int textColor, float textScale, boolean textBold, String textAlign,
                       String entityId, String entityName, int entityScale,
-                      List<OrderedText> richLines, int richColor, float richScale, boolean richOutline, float animSpeed) {
+                      List<OrderedText> richLines, int richColor, float richScale, boolean richOutline, float animSpeed,
+                      String hoverSound, float hoverPitch, float hoverVolume, String clickSound, float clickPitch, float clickVolume) {
         this.id = id;
         this.type = type;
         this.texture = texture;
         this.mcItem = mcItem;
         this.anchor = anchor;
 
-        // Setup de animación
         this.offsetX = offsetX;
         this.offsetY = offsetY;
         this.targetOffsetX = offsetX;
@@ -76,6 +83,7 @@ public class GuiElement {
         this.textColor = textColor;
         this.textScale = textScale;
         this.textBold = textBold;
+        this.textAlign = textAlign;
         this.entityId = entityId;
         this.entityName = entityName;
         this.entityScale = entityScale;
@@ -83,6 +91,13 @@ public class GuiElement {
         this.richColor = richColor;
         this.richScale = richScale;
         this.richOutline = richOutline;
+
+        this.hoverSound = hoverSound;
+        this.hoverPitch = hoverPitch;
+        this.hoverVolume = hoverVolume;
+        this.clickSound = clickSound;
+        this.clickPitch = clickPitch;
+        this.clickVolume = clickVolume;
     }
 
     public int getBaseX(int screenWidth) {

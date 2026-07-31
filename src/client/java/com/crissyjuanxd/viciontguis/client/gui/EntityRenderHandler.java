@@ -46,20 +46,11 @@ public final class EntityRenderHandler {
     }
 
     public static void render(DrawContext context, GuiElement element, MinecraftClient client,
-                              int screenWidth, int screenHeight, float finalScale, int mouseX, int mouseY) {
-        render(context, element, client, screenWidth, screenHeight, finalScale, mouseX, mouseY, 0, 0);
-    }
-
-    public static void render(DrawContext context, GuiElement element, MinecraftClient client,
-                              int screenWidth, int screenHeight, float finalScale, int mouseX, int mouseY,
+                              int physWidth, int physHeight, int virtWidth, int virtHeight, float scale, int mouseX, int mouseY,
                               int shiftX, int shiftY) {
 
-        int rx = element.getRenderX(screenWidth, shiftX);
-        int ry = element.getRenderY(screenHeight, shiftY);
-
-        if (element.texture != null) {
-            context.drawTexture(element.texture, rx, ry, 0, 0, element.width, element.height, element.texWidth, element.texHeight);
-        }
+        int rx = element.getRenderX(virtWidth, shiftX);
+        int ry = element.getRenderY(virtHeight, shiftY);
 
         LivingEntity entity = getOrCreateEntity(element, client);
         if (entity == null) return;
@@ -68,24 +59,27 @@ public final class EntityRenderHandler {
             entity.age = (int) client.world.getTime();
         }
 
-        context.getMatrices().pop();
+        // Calculamos las medidas absolutas relacionando el espacio virtual de la GUI con la pantalla física de Minecraft
+        int physCenterX = physWidth / 2;
+        int physCenterY = physHeight / 2;
+        int virtCenterX = virtWidth / 2;
+        int virtCenterY = virtHeight / 2;
 
-        int centerX = screenWidth / 2;
-        int centerY = screenHeight / 2;
+        int absX1 = (int) (physCenterX + (rx + 2 - virtCenterX) * scale);
+        int absY1 = (int) (physCenterY + (ry + 2 - virtCenterY) * scale);
+        int absX2 = (int) (physCenterX + (rx + element.width - 2 - virtCenterX) * scale);
+        int absY2 = (int) (physCenterY + (ry + element.height - 4 - virtCenterY) * scale);
 
-        int absX1 = (int) (centerX + (rx + 2 - centerX) * finalScale);
-        int absY1 = (int) (centerY + (ry + 2 - centerY) * finalScale);
-        int absX2 = (int) (centerX + (rx + element.width - 2 - centerX) * finalScale);
-        int absY2 = (int) (centerY + (ry + element.height - 4 - centerY) * finalScale);
-        int scaledSize = (int) (element.entityScale * finalScale);
+        int scaledSize = (int) (element.entityScale * scale);
+
+        // FIX BUG 1: Empujamos la matriz 400 puntos hacia adelante en el eje Z para que el modelo 3D no se hunda en el fondo de la GUI
+        context.getMatrices().push();
+        context.getMatrices().translate(0.0f, 0.0f, 400.0f);
 
         context.enableScissor(absX1, absY1, absX2, absY2);
         InventoryScreen.drawEntity(context, absX1, absY1, absX2, absY2, scaledSize, 0.0625f, mouseX, mouseY, entity);
         context.disableScissor();
 
-        context.getMatrices().push();
-        context.getMatrices().translate(centerX, centerY, 0);
-        context.getMatrices().scale(finalScale, finalScale, 1.0f);
-        context.getMatrices().translate(-centerX, -centerY, 0);
+        context.getMatrices().pop();
     }
 }

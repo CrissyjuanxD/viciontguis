@@ -23,8 +23,7 @@ public final class GuiElementFactory {
 
     private GuiElementFactory() {}
 
-    // NUEVO: Añadido boolean fixedScale al Record
-    public record ParseResult(GuiBackground background, List<GuiElement> elements, boolean fixedScale) {}
+    public record ParseResult(GuiBackground background, List<GuiElement> elements, boolean fixedScale, String openSound, float openPitch, float openVolume, String closeSound, float closePitch, float closeVolume) {}
 
     public static ParseResult parse(JsonObject guiData, TextRenderer textRenderer) {
         GuiBackground background = null;
@@ -46,10 +45,17 @@ public final class GuiElementFactory {
             }
         }
 
-        // NUEVO: Leemos del JSON si tiene la propiedad activa
         boolean fixedScale = guiData.has("fixed_scale") && guiData.get("fixed_scale").getAsBoolean();
 
-        return new ParseResult(background, elements, fixedScale);
+        String openSound = guiData.has("open_sound") ? guiData.get("open_sound").getAsString() : null;
+        float openPitch = guiData.has("open_pitch") ? guiData.get("open_pitch").getAsFloat() : 1.0f;
+        float openVolume = guiData.has("open_volume") ? guiData.get("open_volume").getAsFloat() : 1.0f;
+
+        String closeSound = guiData.has("close_sound") ? guiData.get("close_sound").getAsString() : null;
+        float closePitch = guiData.has("close_pitch") ? guiData.get("close_pitch").getAsFloat() : 1.0f;
+        float closeVolume = guiData.has("close_volume") ? guiData.get("close_volume").getAsFloat() : 1.0f;
+
+        return new ParseResult(background, elements, fixedScale, openSound, openPitch, openVolume, closeSound, closePitch, closeVolume);
     }
 
     private static GuiElement parseElement(JsonObject obj, TextRenderer textRenderer) {
@@ -107,6 +113,7 @@ public final class GuiElementFactory {
         int textColor = 0xFFFFFF;
         float textScale = 1.5f;
         boolean textBold = false;
+        String textAlign = "center";
         if (type.equals("text")) {
             textContent = obj.has("text") ? obj.get("text").getAsString() : "";
             if (obj.has("color")) {
@@ -118,6 +125,9 @@ public final class GuiElementFactory {
                 textScale = obj.get("scale").getAsFloat();
             }
             textBold = obj.has("bold") && obj.get("bold").getAsBoolean();
+            if (obj.has("text_align")) {
+                textAlign = obj.get("text_align").getAsString();
+            }
         }
 
         List<OrderedText> richLines = null;
@@ -148,10 +158,19 @@ public final class GuiElementFactory {
             }
         }
 
+        String hoverSound = obj.has("hover_sound") ? obj.get("hover_sound").getAsString() : null;
+        float hoverPitch = obj.has("hover_pitch") ? obj.get("hover_pitch").getAsFloat() : 1.0f;
+        float hoverVolume = obj.has("hover_volume") ? obj.get("hover_volume").getAsFloat() : 1.0f;
+
+        String clickSound = obj.has("click_sound") ? obj.get("click_sound").getAsString() : null;
+        float clickPitch = obj.has("click_pitch") ? obj.get("click_pitch").getAsFloat() : 1.0f;
+        float clickVolume = obj.has("click_volume") ? obj.get("click_volume").getAsFloat() : 1.0f;
+
         return new GuiElement(
                 id, type, texture, mcItem, anchor, offsetX, offsetY, width, height, texWidth, texHeight,
-                isButton, tooltipLines, action, textContent, textColor, textScale, textBold,
-                entityId, entityName, entityScale, richLines, richColor, richScale, richOutline, animSpeed
+                isButton, tooltipLines, action, textContent, textColor, textScale, textBold, textAlign,
+                entityId, entityName, entityScale, richLines, richColor, richScale, richOutline, animSpeed,
+                hoverSound, hoverPitch, hoverVolume, clickSound, clickPitch, clickVolume
         );
     }
 
@@ -163,7 +182,7 @@ public final class GuiElementFactory {
         for (JsonElement lineElem : lines) {
             JsonObject lineObj = lineElem.getAsJsonObject();
             String txt = lineObj.has("text") ? lineObj.get("text").getAsString() : "";
-            
+
             if (txt.equalsIgnoreCase("default") && mcItem != null && !mcItem.isEmpty()) {
                 tooltipLines.add(mcItem.getName());
                 continue;

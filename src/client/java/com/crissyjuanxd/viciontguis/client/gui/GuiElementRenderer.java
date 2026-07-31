@@ -48,11 +48,20 @@ public final class GuiElementRenderer {
         context.getMatrices().translate(rx, ry, 0);
         context.getMatrices().scale(element.textScale, element.textScale, 1.0f);
 
-        MutableText renderText = Text.literal(element.text).setStyle(
-                Text.empty().getStyle().withBold(element.textBold)
-        );
-        context.drawCenteredTextWithShadow(textRenderer, renderText, 0, 0, element.textColor);
+        MutableText renderText = Text.literal(element.text).setStyle(Text.empty().getStyle().withBold(element.textBold));
 
+        int textWidth = textRenderer.getWidth(renderText);
+        int drawX;
+
+        if ("right".equalsIgnoreCase(element.textAlign)) {
+            drawX = -textWidth;
+        } else if ("left".equalsIgnoreCase(element.textAlign)) {
+            drawX = 0;
+        } else {
+            drawX = -(textWidth / 2);
+        }
+
+        context.drawTextWithShadow(textRenderer, renderText, drawX, 0, element.textColor);
         context.getMatrices().pop();
     }
 

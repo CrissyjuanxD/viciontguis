@@ -1,11 +1,14 @@
 package com.crissyjuanxd.viciontguis.client.gui;
 
+import com.crissyjuanxd.viciontguis.client.ViciontGuisClient;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.sound.SoundEvent;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
 
 import java.util.ArrayList;
@@ -27,10 +30,27 @@ public class DynamicGuiScreen extends Screen {
     private float customScaleModifier = 1.0f;
     private static final float BASE_MENU_SCALE = 3.2f;
 
+    private String openSound;
+    private float openPitch;
+    private float openVolume;
+    private String closeSound;
+    private float closePitch;
+    private float closeVolume;
+    private boolean openSoundPlayed = false;
+
+    private static long lastHoverSoundTime = 0;
+
     public DynamicGuiScreen(String jsonPayload, Consumer<String> actionHandler) {
         super(Text.literal("Viciont Custom GUI"));
         this.jsonPayload = jsonPayload;
         this.actionHandler = actionHandler;
+    }
+
+    private void playSound(String soundId, float pitch, float volume) {
+        if (this.client != null && soundId != null && !soundId.isEmpty()) {
+            float finalVolume = volume * ViciontGuisClient.MENU_VOLUME;
+            this.client.getSoundManager().play(net.minecraft.client.sound.PositionedSoundInstance.master(SoundEvent.of(Identifier.of(soundId)), pitch, finalVolume));
+        }
     }
 
     @Override
@@ -51,22 +71,52 @@ public class DynamicGuiScreen extends Screen {
             GuiElementFactory.ParseResult result = GuiElementFactory.parse(guiData, this.textRenderer);
             this.background = result.background();
             this.interactableElements.addAll(result.elements());
+
+            this.openSound = result.openSound();
+            this.openPitch = result.openPitch();
+            this.openVolume = result.openVolume();
+            this.closeSound = result.closeSound();
+            this.closePitch = result.closePitch();
+            this.closeVolume = result.closeVolume();
+
+            if (!openSoundPlayed && this.openSound != null && !this.openSound.isEmpty()) {
+                playSound(this.openSound, this.openPitch, this.openVolume);
+                openSoundPlayed = true;
+            }
         } catch (Exception e) {
             System.err.println("Error parseando el JSON: " + e.getMessage());
         }
     }
 
-    // NUEVO MÉTODO: Actualiza los elementos sin reiniciar la animación
     public void updateData(String newJsonPayload) {
         try {
             JsonObject guiData = JsonParser.parseString(newJsonPayload).getAsJsonObject();
             GuiElementFactory.ParseResult result = GuiElementFactory.parse(guiData, this.textRenderer);
             this.background = result.background();
+
+            List<String> hoveredIds = new ArrayList<>();
+            for (GuiElement el : this.interactableElements) {
+                if (el.wasHovered) hoveredIds.add(el.id);
+            }
+
             this.interactableElements.clear();
             this.interactableElements.addAll(result.elements());
+
+            for (GuiElement el : this.interactableElements) {
+                if (hoveredIds.contains(el.id)) el.wasHovered = true;
+            }
         } catch (Exception e) {
             System.err.println("Error parseando el JSON en update: " + e.getMessage());
         }
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (ViciontGuisClient.GuiKey.matchesKey(keyCode, scanCode)) {
+            this.close();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
@@ -79,6 +129,9 @@ public class DynamicGuiScreen extends Screen {
     @Override
     public void close() {
         if (!isClosing) {
+            if (this.closeSound != null && !this.closeSound.isEmpty()) {
+                playSound(this.closeSound, this.closePitch, this.closeVolume);
+            }
             this.isClosing = true;
             this.animationStartTime = Util.getMeasuringTimeMs();
         }
@@ -98,29 +151,30 @@ public class DynamicGuiScreen extends Screen {
         if (isClosing && progress >= 1.0f) return;
 
         float finalScale = animScale * customScaleModifier;
-        int screenWidth = this.width;
-        int screenHeight = this.height;
-        int centerX = screenWidth / 2;
-        int centerY = screenHeight / 2;
 
-        int adjMouseX = (int) (centerX + (mouseX - centerX) / customScaleModifier);
-        int adjMouseY = (int) (centerY + (mouseY - centerY) / customScaleModifier);
+        // RESOLUCIÓN VIRTUAL ESTABLE: Se calcula solo con el modificador, eliminando el tambaleo
+        int virtualSw = (int) (this.width / customScaleModifier);
+        int virtualSh = (int) (this.height / customScaleModifier);
+
+        int adjMouseX = (int) (virtualSw / 2f + (mouseX - this.width / 2f) / finalScale);
+        int adjMouseY = (int) (virtualSh / 2f + (mouseY - this.height / 2f) / finalScale);
 
         GuiElement hoveredElement = null;
         int currentZ = 0;
 
         context.getMatrices().push();
-        context.getMatrices().translate(centerX, centerY, 0);
+        // Escalar desde el centro real para mantener las proporciones exactas
+        context.getMatrices().translate(this.width / 2f, this.height / 2f, 0);
         context.getMatrices().scale(finalScale, finalScale, 1.0f);
-        context.getMatrices().translate(-centerX, -centerY, 0);
+        context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f, 0);
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
         if (background != null) {
             context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
-            int bgX = centerX - (background.width() / 2);
-            int bgY = centerY - (background.height() / 2);
+            int bgX = (virtualSw / 2) - (background.width() / 2);
+            int bgY = (virtualSh / 2) - (background.height() / 2);
             context.drawTexture(background.texture(), bgX, bgY, 0, 0, background.width(), background.height(), background.texWidth(), background.texHeight());
             context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
         }
@@ -132,9 +186,20 @@ public class DynamicGuiScreen extends Screen {
             context.getMatrices().push();
             context.getMatrices().translate(0, 0, currentZ);
 
-            boolean isHovered = animScale >= 1.0f && !isClosing && element.isHovered(adjMouseX, adjMouseY, screenWidth, screenHeight);
+            boolean isHovered = animScale >= 1.0f && !isClosing && element.isHovered(adjMouseX, adjMouseY, virtualSw, virtualSh);
 
             if (isHovered && !element.type.equals("invisible_button")) {
+                if (!element.wasHovered) {
+                    if (element.hoverSound != null && !element.hoverSound.isEmpty()) {
+                        long now = Util.getMeasuringTimeMs();
+                        if (now - lastHoverSoundTime > 60) {
+                            playSound(element.hoverSound, element.hoverPitch, element.hoverVolume);
+                            lastHoverSoundTime = now;
+                        }
+                    }
+                    element.wasHovered = true;
+                }
+
                 if (element.isButton || (element.tooltipLines != null && !element.tooltipLines.isEmpty())) {
                     hoveredElement = element;
                 }
@@ -144,21 +209,38 @@ public class DynamicGuiScreen extends Screen {
                     context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
                 }
             } else {
+                element.wasHovered = false;
                 context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             }
 
             switch (element.type) {
-                case "item_slot" -> GuiElementRenderer.renderItemSlot(context, element, screenWidth, screenHeight, isHovered);
+                case "item_slot" -> GuiElementRenderer.renderItemSlot(context, element, virtualSw, virtualSh, isHovered);
                 case "entity" -> {
-                    context.getMatrices().pop();
-                    EntityRenderHandler.render(context, element, this.client, screenWidth, screenHeight, finalScale, mouseX, mouseY);
+                    // Dibuja el marco de la entidad en espacio virtual
+                    if (element.texture != null) {
+                        int rx = element.getRenderX(virtualSw, 0);
+                        int ry = element.getRenderY(virtualSh, 0);
+                        context.drawTexture(element.texture, rx, ry, 0, 0, element.width, element.height, element.texWidth, element.texHeight);
+                    }
+
+                    // Extrae la matriz virtual para usar renderizado físico (Absoluto)
+                    context.getMatrices().pop(); // Quita transformacion de elemento
+                    context.getMatrices().pop(); // Quita transformacion principal
+
+                    EntityRenderHandler.render(context, element, this.client, this.width, this.height, virtualSw, virtualSh, finalScale, mouseX, mouseY, 0, 0);
+
+                    // Restaura las matrices
+                    context.getMatrices().push();
+                    context.getMatrices().translate(this.width / 2f, this.height / 2f, 0);
+                    context.getMatrices().scale(finalScale, finalScale, 1.0f);
+                    context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f, 0);
                     context.getMatrices().push();
                     context.getMatrices().translate(0, 0, currentZ);
                 }
-                case "text" -> GuiElementRenderer.renderText(context, this.textRenderer, element, screenWidth, screenHeight);
-                case "rich_text" -> GuiElementRenderer.renderRichText(context, this.textRenderer, element, screenWidth, screenHeight);
+                case "text" -> GuiElementRenderer.renderText(context, this.textRenderer, element, virtualSw, virtualSh);
+                case "rich_text" -> GuiElementRenderer.renderRichText(context, this.textRenderer, element, virtualSw, virtualSh);
                 case "invisible_button" -> {}
-                default -> GuiElementRenderer.renderImage(context, element, screenWidth, screenHeight);
+                default -> GuiElementRenderer.renderImage(context, element, virtualSw, virtualSh);
             }
 
             context.getMatrices().pop();
@@ -192,17 +274,21 @@ public class DynamicGuiScreen extends Screen {
         }
 
         if (button == 0) {
-            int screenWidth = this.width;
-            int screenHeight = this.height;
-            int centerX = screenWidth / 2;
-            int centerY = screenHeight / 2;
+            float finalScale = customScaleModifier;
+            int virtualSw = (int) (this.width / finalScale);
+            int virtualSh = (int) (this.height / finalScale);
 
-            int adjMouseX = (int) (centerX + (mouseX - centerX) / customScaleModifier);
-            int adjMouseY = (int) (centerY + (mouseY - centerY) / customScaleModifier);
+            int adjMouseX = (int) (virtualSw / 2f + (mouseX - this.width / 2f) / finalScale);
+            int adjMouseY = (int) (virtualSh / 2f + (mouseY - this.height / 2f) / finalScale);
 
             for (int i = interactableElements.size() - 1; i >= 0; i--) {
                 GuiElement element = interactableElements.get(i);
-                if (element.isButton && element.isHovered(adjMouseX, adjMouseY, screenWidth, screenHeight)) {
+                if (element.isButton && element.isHovered(adjMouseX, adjMouseY, virtualSw, virtualSh)) {
+
+                    if (element.clickSound != null && !element.clickSound.isEmpty()) {
+                        playSound(element.clickSound, element.clickPitch, element.clickVolume);
+                    }
+
                     if (element.action != null && actionHandler != null) {
                         actionHandler.accept(element.action);
                     }

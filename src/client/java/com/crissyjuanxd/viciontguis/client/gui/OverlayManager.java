@@ -1,5 +1,6 @@
 package com.crissyjuanxd.viciontguis.client.gui;
 
+import com.crissyjuanxd.viciontguis.client.ViciontGuisClient;
 import com.crissyjuanxd.viciontguis.client.mixin.HandledScreenMixin;
 import com.crissyjuanxd.viciontguis.client.network.GuiNetworkHandler;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -12,9 +13,11 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.text.OrderedText;
+import net.minecraft.sound.SoundEvent;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +33,11 @@ public final class OverlayManager {
         long lastTime;
     }
 
+    private static long lastHoverSoundTime = 0;
+
+    private static boolean checkedCinematic = false;
+    private static Field cinematicPlayingField = null;
+
     public static void init() {
         HudRenderCallback.EVENT.register(OverlayManager::renderHud);
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
@@ -40,18 +48,31 @@ public final class OverlayManager {
         });
     }
 
-    // NUEVO: Fórmula base de escala fija para evitar reescribirla
     private static float getFixedScaleModifier() {
         MinecraftClient client = MinecraftClient.getInstance();
         float guiScale = (float) client.getWindow().getScaleFactor();
         int screenHeightPx = client.getWindow().getFramebufferHeight();
         float resolutionScale = screenHeightPx / 1080.0f;
-        return (1.0f / guiScale) * (resolutionScale * 3.2f); // 3.2f = BASE_MENU_SCALE
+        return (1.0f / guiScale) * (resolutionScale * 3.2f);
     }
 
     public static void addOverlay(String id, String target, GuiElementFactory.ParseResult parsed) {
-        if ("hud".equals(target)) hudOverlays.put(id, parsed);
-        else if ("inventory".equals(target)) invOverlays.put(id, parsed);
+        if ("hud".equals(target)) {
+            hudOverlays.put(id, parsed);
+        } else if ("inventory".equals(target)) {
+            GuiElementFactory.ParseResult old = invOverlays.get(id);
+            if (old != null) {
+                for (GuiElement newEl : parsed.elements()) {
+                    for (GuiElement oldEl : old.elements()) {
+                        if (newEl.id.equals(oldEl.id) && oldEl.wasHovered) {
+                            newEl.wasHovered = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            invOverlays.put(id, parsed);
+        }
     }
 
     public static boolean removeOverlay(String id) {
@@ -89,8 +110,34 @@ public final class OverlayManager {
         element.offsetY = (int) state.y;
     }
 
+    private static void playSound(String soundId, float pitch, float volume) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (soundId != null && !soundId.isEmpty()) {
+            float finalVolume = volume * ViciontGuisClient.MENU_VOLUME;
+            client.getSoundManager().play(net.minecraft.client.sound.PositionedSoundInstance.master(SoundEvent.of(Identifier.of(soundId)), pitch, finalVolume));
+        }
+    }
+
+    private static boolean isCinematicPlaying() {
+        if (!checkedCinematic) {
+            try {
+                Class<?> clazz = Class.forName("com.vctcinematics.core.CinematicManager");
+                cinematicPlayingField = clazz.getField("isPlaying");
+            } catch (Exception e) {
+            }
+            checkedCinematic = true;
+        }
+
+        if (cinematicPlayingField != null) {
+            try {
+                return cinematicPlayingField.getBoolean(null);
+            } catch (Exception e) { }
+        }
+        return false;
+    }
+
     private static void renderHud(DrawContext context, RenderTickCounter tickCounter) {
-        if (MinecraftClient.getInstance().options.hudHidden || hudOverlays.isEmpty()) return;
+        if (MinecraftClient.getInstance().options.hudHidden || hudOverlays.isEmpty() || isCinematicPlaying()) return;
 
         int sw = context.getScaledWindowWidth();
         int sh = context.getScaledWindowHeight();
@@ -99,19 +146,24 @@ public final class OverlayManager {
             GuiElementFactory.ParseResult overlay = entry.getValue();
 
             context.getMatrices().push();
+            int virtualSw = sw;
+            int virtualSh = sh;
+            float scaleMod = 1.0f;
 
-            // APLICAR ESCALA FIJA AL HUD SI ESTÁ ACTIVADA
             if (overlay.fixedScale()) {
-                float scaleMod = getFixedScaleModifier();
+                scaleMod = getFixedScaleModifier();
+                virtualSw = (int) (sw / scaleMod);
+                virtualSh = (int) (sh / scaleMod);
+
                 context.getMatrices().translate(sw / 2f, sh / 2f, 0);
                 context.getMatrices().scale(scaleMod, scaleMod, 1.0f);
-                context.getMatrices().translate(-sw / 2f, -sh / 2f, 0);
+                context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f, 0);
             }
 
-            renderOverlayBackground(context, overlay, 0, 0, sw, sh);
+            renderOverlayBackground(context, overlay, 0, 0, virtualSw, virtualSh);
             for (GuiElement element : overlay.elements()) {
                 processAnimations(entry.getKey(), element);
-                renderElement(context, element, 0, 0, false, false, sw, sh);
+                renderElement(context, element, 0, 0, false, false, sw, sh, virtualSw, virtualSh, scaleMod);
             }
             context.getMatrices().pop();
         }
@@ -132,27 +184,46 @@ public final class OverlayManager {
             GuiElementFactory.ParseResult overlay = entry.getValue();
 
             context.getMatrices().push();
-            float scaleMod = overlay.fixedScale() ? getFixedScaleModifier() : 1.0f;
+            float scaleMod = 1.0f;
+            int virtualSw = screen.width;
+            int virtualSh = screen.height;
 
-            // APLICAR ESCALA FIJA AL INVENTARIO SI ESTÁ ACTIVADA
             if (overlay.fixedScale()) {
+                scaleMod = getFixedScaleModifier();
+                virtualSw = (int) (screen.width / scaleMod);
+                virtualSh = (int) (screen.height / scaleMod);
+
                 context.getMatrices().translate(screen.width / 2f, screen.height / 2f, 0);
                 context.getMatrices().scale(scaleMod, scaleMod, 1.0f);
-                context.getMatrices().translate(-screen.width / 2f, -screen.height / 2f, 0);
+                context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f, 0);
             }
 
-            // AJUSTE DEL RATÓN POR LA ESCALA
-            int adjMouseX = overlay.fixedScale() ? (int) (screen.width / 2f + (mouseX - screen.width / 2f) / scaleMod) : mouseX;
-            int adjMouseY = overlay.fixedScale() ? (int) (screen.height / 2f + (mouseY - screen.height / 2f) / scaleMod) : mouseY;
+            int adjMouseX = overlay.fixedScale() ? (int) (virtualSw / 2f + (mouseX - screen.width / 2f) / scaleMod) : mouseX;
+            int adjMouseY = overlay.fixedScale() ? (int) (virtualSh / 2f + (mouseY - screen.height / 2f) / scaleMod) : mouseY;
 
-            renderOverlayBackground(context, overlay, shiftX, shiftY, screen.width, screen.height);
+            renderOverlayBackground(context, overlay, shiftX, shiftY, virtualSw, virtualSh);
             for (GuiElement element : overlay.elements()) {
                 processAnimations(entry.getKey(), element);
 
-                boolean isHovered = element.isHovered(adjMouseX, adjMouseY, screen.width, screen.height, shiftX, shiftY);
+                boolean isHovered = element.isHovered(adjMouseX, adjMouseY, virtualSw, virtualSh, shiftX, shiftY);
                 if (isHovered && element.isButton) hoveredElement = element;
 
-                renderElement(context, element, shiftX, shiftY, isHovered, true, screen.width, screen.height);
+                if (isHovered && !element.type.equals("invisible_button")) {
+                    if (!element.wasHovered) {
+                        if (element.hoverSound != null && !element.hoverSound.isEmpty()) {
+                            long now = Util.getMeasuringTimeMs();
+                            if (now - lastHoverSoundTime > 60) {
+                                playSound(element.hoverSound, element.hoverPitch, element.hoverVolume);
+                                lastHoverSoundTime = now;
+                            }
+                        }
+                        element.wasHovered = true;
+                    }
+                } else {
+                    element.wasHovered = false;
+                }
+
+                renderElement(context, element, shiftX, shiftY, isHovered, true, screen.width, screen.height, virtualSw, virtualSh, scaleMod);
             }
             context.getMatrices().pop();
         }
@@ -174,14 +245,14 @@ public final class OverlayManager {
         }
     }
 
-    private static void renderOverlayBackground(DrawContext context, GuiElementFactory.ParseResult overlay, int shiftX, int shiftY, int sw, int sh) {
+    private static void renderOverlayBackground(DrawContext context, GuiElementFactory.ParseResult overlay, int shiftX, int shiftY, int virtualSw, int virtualSh) {
         if (overlay.background() == null) return;
-        int bgX = (sw / 2) + shiftX - (overlay.background().width() / 2);
-        int bgY = (sh / 2) + shiftY - (overlay.background().height() / 2);
+        int bgX = (virtualSw / 2) + shiftX - (overlay.background().width() / 2);
+        int bgY = (virtualSh / 2) + shiftY - (overlay.background().height() / 2);
         context.drawTexture(overlay.background().texture(), bgX, bgY, 0, 0, overlay.background().width(), overlay.background().height(), overlay.background().texWidth(), overlay.background().texHeight());
     }
 
-    private static void renderElement(DrawContext context, GuiElement element, int shiftX, int shiftY, boolean isHovered, boolean isInventory, int sw, int sh) {
+    private static void renderElement(DrawContext context, GuiElement element, int shiftX, int shiftY, boolean isHovered, boolean isInventory, int physSw, int physSh, int virtualSw, int virtualSh, float scaleMod) {
         MinecraftClient client = MinecraftClient.getInstance();
 
         RenderSystem.enableBlend();
@@ -189,17 +260,35 @@ public final class OverlayManager {
         context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
         if (isHovered && isInventory && element.isButton && !element.type.equals("item_slot") && !element.type.equals("entity")) {
-            context.fill(element.getRenderX(sw, shiftX), element.getRenderY(sh, shiftY),
-                    element.getRenderX(sw, shiftX) + element.width, element.getRenderY(sh, shiftY) + element.height, 0x40000000);
+            context.fill(element.getRenderX(virtualSw, shiftX), element.getRenderY(virtualSh, shiftY),
+                    element.getRenderX(virtualSw, shiftX) + element.width, element.getRenderY(virtualSh, shiftY) + element.height, 0x40000000);
         }
 
         switch (element.type) {
-            case "item_slot" -> GuiElementRenderer.renderItemSlot(context, element, sw, sh, isHovered, shiftX, shiftY);
-            case "entity" -> EntityRenderHandler.render(context, element, client, sw, sh, 1.0f, -1, -1, shiftX, shiftY);
-            case "text" -> GuiElementRenderer.renderText(context, client.textRenderer, element, sw, sh, shiftX, shiftY);
-            case "rich_text" -> GuiElementRenderer.renderRichText(context, client.textRenderer, element, sw, sh, shiftX, shiftY);
+            case "item_slot" -> GuiElementRenderer.renderItemSlot(context, element, virtualSw, virtualSh, isHovered, shiftX, shiftY);
+            case "entity" -> {
+                // Dibuja la textura en el espacio virtual activo
+                if (element.texture != null) {
+                    context.drawTexture(element.texture, element.getRenderX(virtualSw, shiftX), element.getRenderY(virtualSh, shiftY), 0, 0, element.width, element.height, element.texWidth, element.texHeight);
+                }
+
+                // Sale temporalmente de la escala virtual para coordenadas absolutas
+                context.getMatrices().pop();
+
+                EntityRenderHandler.render(context, element, client, physSw, physSh, virtualSw, virtualSh, scaleMod, -1, -1, shiftX, shiftY);
+
+                // Vuelve a aplicar la escala virtual
+                context.getMatrices().push();
+                if (scaleMod != 1.0f) {
+                    context.getMatrices().translate(physSw / 2f, physSh / 2f, 0);
+                    context.getMatrices().scale(scaleMod, scaleMod, 1.0f);
+                    context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f, 0);
+                }
+            }
+            case "text" -> GuiElementRenderer.renderText(context, client.textRenderer, element, virtualSw, virtualSh, shiftX, shiftY);
+            case "rich_text" -> GuiElementRenderer.renderRichText(context, client.textRenderer, element, virtualSw, virtualSh, shiftX, shiftY);
             case "invisible_button" -> {}
-            default -> GuiElementRenderer.renderImage(context, element, sw, sh, shiftX, shiftY);
+            default -> GuiElementRenderer.renderImage(context, element, virtualSw, virtualSh, shiftX, shiftY);
         }
 
         context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
@@ -218,11 +307,19 @@ public final class OverlayManager {
             GuiElementFactory.ParseResult overlay = entry.getValue();
 
             float scaleMod = overlay.fixedScale() ? getFixedScaleModifier() : 1.0f;
-            int adjMouseX = overlay.fixedScale() ? (int) (screen.width / 2f + (mouseX - screen.width / 2f) / scaleMod) : (int) mouseX;
-            int adjMouseY = overlay.fixedScale() ? (int) (screen.height / 2f + (mouseY - screen.height / 2f) / scaleMod) : (int) mouseY;
+            int virtualSw = overlay.fixedScale() ? (int) (screen.width / scaleMod) : screen.width;
+            int virtualSh = overlay.fixedScale() ? (int) (screen.height / scaleMod) : screen.height;
+
+            int adjMouseX = overlay.fixedScale() ? (int) (virtualSw / 2f + (mouseX - screen.width / 2f) / scaleMod) : (int) mouseX;
+            int adjMouseY = overlay.fixedScale() ? (int) (virtualSh / 2f + (mouseY - screen.height / 2f) / scaleMod) : (int) mouseY;
 
             for (GuiElement element : overlay.elements()) {
-                if (element.isButton && element.isHovered(adjMouseX, adjMouseY, screen.width, screen.height, shiftX, shiftY)) {
+                if (element.isButton && element.isHovered(adjMouseX, adjMouseY, virtualSw, virtualSh, shiftX, shiftY)) {
+
+                    if (element.clickSound != null && !element.clickSound.isEmpty()) {
+                        playSound(element.clickSound, element.clickPitch, element.clickVolume);
+                    }
+
                     if (element.action != null) GuiNetworkHandler.sendAction(entry.getKey(), element.action);
                     return false;
                 }

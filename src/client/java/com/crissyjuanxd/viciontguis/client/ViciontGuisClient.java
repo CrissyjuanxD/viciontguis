@@ -23,6 +23,7 @@ import java.util.Map;
 public class ViciontGuisClient implements ClientModInitializer {
 
     public static KeyBinding GuiKey;
+    public static float MENU_VOLUME = 1.0f;
 
 /*    private static final int CAMBIOS_COLS = 4;
     private static final int CAMBIOS_ROWS = 4;
