@@ -3,12 +3,12 @@ package com.crissyjuanxd.viciontguis.client.gui;
 import com.crissyjuanxd.viciontguis.client.ViciontGuisClient;
 import com.crissyjuanxd.viciontguis.client.mixin.HandledScreenMixin;
 import com.crissyjuanxd.viciontguis.client.network.GuiNetworkHandler;
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
@@ -114,7 +114,7 @@ public final class OverlayManager {
         MinecraftClient client = MinecraftClient.getInstance();
         if (soundId != null && !soundId.isEmpty()) {
             float finalVolume = volume * ViciontGuisClient.MENU_VOLUME;
-            client.getSoundManager().play(net.minecraft.client.sound.PositionedSoundInstance.master(SoundEvent.of(Identifier.of(soundId)), pitch, finalVolume));
+            client.getSoundManager().play(net.minecraft.client.sound.PositionedSoundInstance.ui(SoundEvent.of(Identifier.of(soundId)), pitch, finalVolume));
         }
     }
 
@@ -145,7 +145,7 @@ public final class OverlayManager {
         for (Map.Entry<String, GuiElementFactory.ParseResult> entry : hudOverlays.entrySet()) {
             GuiElementFactory.ParseResult overlay = entry.getValue();
 
-            context.getMatrices().push();
+            context.getMatrices().pushMatrix();
             int virtualSw = sw;
             int virtualSh = sh;
             float scaleMod = 1.0f;
@@ -155,9 +155,9 @@ public final class OverlayManager {
                 virtualSw = (int) (sw / scaleMod);
                 virtualSh = (int) (sh / scaleMod);
 
-                context.getMatrices().translate(sw / 2f, sh / 2f, 0);
-                context.getMatrices().scale(scaleMod, scaleMod, 1.0f);
-                context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f, 0);
+                context.getMatrices().translate(sw / 2f, sh / 2f);
+                context.getMatrices().scale(scaleMod, scaleMod);
+                context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f);
             }
 
             renderOverlayBackground(context, overlay, 0, 0, virtualSw, virtualSh);
@@ -165,7 +165,7 @@ public final class OverlayManager {
                 processAnimations(entry.getKey(), element);
                 renderElement(context, element, 0, 0, false, false, sw, sh, virtualSw, virtualSh, scaleMod);
             }
-            context.getMatrices().pop();
+            context.getMatrices().popMatrix();
         }
     }
 
@@ -183,7 +183,7 @@ public final class OverlayManager {
         for (Map.Entry<String, GuiElementFactory.ParseResult> entry : invOverlays.entrySet()) {
             GuiElementFactory.ParseResult overlay = entry.getValue();
 
-            context.getMatrices().push();
+            context.getMatrices().pushMatrix();
             float scaleMod = 1.0f;
             int virtualSw = screen.width;
             int virtualSh = screen.height;
@@ -193,9 +193,9 @@ public final class OverlayManager {
                 virtualSw = (int) (screen.width / scaleMod);
                 virtualSh = (int) (screen.height / scaleMod);
 
-                context.getMatrices().translate(screen.width / 2f, screen.height / 2f, 0);
-                context.getMatrices().scale(scaleMod, scaleMod, 1.0f);
-                context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f, 0);
+                context.getMatrices().translate(screen.width / 2f, screen.height / 2f);
+                context.getMatrices().scale(scaleMod, scaleMod);
+                context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f);
             }
 
             int adjMouseX = overlay.fixedScale() ? (int) (virtualSw / 2f + (mouseX - screen.width / 2f) / scaleMod) : mouseX;
@@ -225,7 +225,7 @@ public final class OverlayManager {
 
                 renderElement(context, element, shiftX, shiftY, isHovered, true, screen.width, screen.height, virtualSw, virtualSh, scaleMod);
             }
-            context.getMatrices().pop();
+            context.getMatrices().popMatrix();
         }
 
         if (hoveredElement != null && !hoveredElement.tooltipLines.isEmpty()) {
@@ -238,10 +238,10 @@ public final class OverlayManager {
                     wrappedTooltip.addAll(textRenderer.wrapLines(line, 1000));
                 }
             }
-            context.getMatrices().push();
-            context.getMatrices().translate(0, 0, 1000);
+            context.getMatrices().pushMatrix();
+            context.getMatrices().translate(0, 1000);
             context.drawOrderedTooltip(textRenderer, wrappedTooltip, mouseX, mouseY);
-            context.getMatrices().pop();
+            context.getMatrices().popMatrix();
         }
     }
 
@@ -249,15 +249,11 @@ public final class OverlayManager {
         if (overlay.background() == null) return;
         int bgX = (virtualSw / 2) + shiftX - (overlay.background().width() / 2);
         int bgY = (virtualSh / 2) + shiftY - (overlay.background().height() / 2);
-        context.drawTexture(overlay.background().texture(), bgX, bgY, 0, 0, overlay.background().width(), overlay.background().height(), overlay.background().texWidth(), overlay.background().texHeight());
+        context.drawTexture(RenderPipelines.GUI_TEXTURED, overlay.background().texture(), bgX, bgY, 0.0f, 0.0f, overlay.background().width(), overlay.background().height(), overlay.background().texWidth(), overlay.background().texHeight());
     }
 
     private static void renderElement(DrawContext context, GuiElement element, int shiftX, int shiftY, boolean isHovered, boolean isInventory, int physSw, int physSh, int virtualSw, int virtualSh, float scaleMod) {
         MinecraftClient client = MinecraftClient.getInstance();
-
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-        context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
         if (isHovered && isInventory && element.isButton && !element.type.equals("item_slot") && !element.type.equals("entity")) {
             context.fill(element.getRenderX(virtualSw, shiftX), element.getRenderY(virtualSh, shiftY),
@@ -269,20 +265,20 @@ public final class OverlayManager {
             case "entity" -> {
                 // Dibuja la textura en el espacio virtual activo
                 if (element.texture != null) {
-                    context.drawTexture(element.texture, element.getRenderX(virtualSw, shiftX), element.getRenderY(virtualSh, shiftY), 0, 0, element.width, element.height, element.texWidth, element.texHeight);
+                    context.drawTexture(RenderPipelines.GUI_TEXTURED, element.texture, element.getRenderX(virtualSw, shiftX), element.getRenderY(virtualSh, shiftY), 0.0f, 0.0f, element.width, element.height, element.texWidth, element.texHeight);
                 }
 
                 // Sale temporalmente de la escala virtual para coordenadas absolutas
-                context.getMatrices().pop();
+                context.getMatrices().popMatrix();
 
                 EntityRenderHandler.render(context, element, client, physSw, physSh, virtualSw, virtualSh, scaleMod, -1, -1, shiftX, shiftY);
 
                 // Vuelve a aplicar la escala virtual
-                context.getMatrices().push();
+                context.getMatrices().pushMatrix();
                 if (scaleMod != 1.0f) {
-                    context.getMatrices().translate(physSw / 2f, physSh / 2f, 0);
-                    context.getMatrices().scale(scaleMod, scaleMod, 1.0f);
-                    context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f, 0);
+                    context.getMatrices().translate(physSw / 2f, physSh / 2f);
+                    context.getMatrices().scale(scaleMod, scaleMod);
+                    context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f);
                 }
             }
             case "text" -> GuiElementRenderer.renderText(context, client.textRenderer, element, virtualSw, virtualSh, shiftX, shiftY);
@@ -290,11 +286,12 @@ public final class OverlayManager {
             case "invisible_button" -> {}
             default -> GuiElementRenderer.renderImage(context, element, virtualSw, virtualSh, shiftX, shiftY);
         }
-
-        context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 
-    private static boolean handleInventoryClick(Screen screen, double mouseX, double mouseY, int button) {
+    private static boolean handleInventoryClick(Screen screen, net.minecraft.client.gui.Click click) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
         if (button != 0 || invOverlays.isEmpty()) return true;
         int shiftX = 0, shiftY = 0;
         if (screen instanceof HandledScreen<?> handled) {

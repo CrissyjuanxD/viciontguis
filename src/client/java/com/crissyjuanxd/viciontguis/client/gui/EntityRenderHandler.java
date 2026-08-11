@@ -24,7 +24,7 @@ public final class EntityRenderHandler {
 
         try {
             EntityType<?> entityType = Registries.ENTITY_TYPE.get(Identifier.of(element.entityId));
-            Entity entity = entityType.create(client.world);
+            Entity entity = entityType.create(client.world, net.minecraft.entity.SpawnReason.COMMAND);
             if (entity instanceof LivingEntity le) {
                 element.cachedEntity = le;
                 le.setUuid(UUID.randomUUID());
@@ -73,13 +73,13 @@ public final class EntityRenderHandler {
         int scaledSize = (int) (element.entityScale * scale);
 
         // FIX BUG 1: Empujamos la matriz 400 puntos hacia adelante en el eje Z para que el modelo 3D no se hunda en el fondo de la GUI
-        context.getMatrices().push();
-        context.getMatrices().translate(0.0f, 0.0f, 400.0f);
+        context.getMatrices().pushMatrix();
+        context.getMatrices().translate(0.0f, 400.0f);
 
         context.enableScissor(absX1, absY1, absX2, absY2);
-        InventoryScreen.drawEntity(context, absX1, absY1, absX2, absY2, scaledSize, 0.0625f, mouseX, mouseY, entity);
+        InventoryScreen.drawEntity(context, absX1, absY1, absX2, absY2, scaledSize, mouseX, mouseY, 0.0625f, entity);
         context.disableScissor();
 
-        context.getMatrices().pop();
+        context.getMatrices().popMatrix();
     }
 }

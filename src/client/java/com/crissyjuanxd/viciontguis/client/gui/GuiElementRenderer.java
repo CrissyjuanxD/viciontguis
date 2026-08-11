@@ -2,6 +2,7 @@ package com.crissyjuanxd.viciontguis.client.gui;
 
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
@@ -19,7 +20,7 @@ public final class GuiElementRenderer {
         int ry = element.getRenderY(screenHeight, shiftY);
 
         if (element.texture != null) {
-            context.drawTexture(element.texture, rx, ry, 0, 0, element.width, element.height, element.texWidth, element.texHeight);
+            context.drawTexture(RenderPipelines.GUI_TEXTURED, element.texture, rx, ry, 0.0f, 0.0f, element.width, element.height, element.texWidth, element.texHeight);
         }
 
         if (isHovered) {
@@ -27,12 +28,12 @@ public final class GuiElementRenderer {
         }
 
         if (element.mcItem != null && !element.mcItem.isEmpty()) {
-            context.getMatrices().push();
+            context.getMatrices().pushMatrix();
             float itemScale = (element.width - 8) / 16.0f;
-            context.getMatrices().translate(rx + 4, ry + 4, 100);
-            context.getMatrices().scale(itemScale, itemScale, 1.0f);
+            context.getMatrices().translate(rx + 4, ry + 4);
+            context.getMatrices().scale(itemScale, itemScale);
             context.drawItem(element.mcItem, 0, 0);
-            context.getMatrices().pop();
+            context.getMatrices().popMatrix();
         }
     }
 
@@ -44,9 +45,9 @@ public final class GuiElementRenderer {
         int rx = element.getBaseX(screenWidth) + shiftX + element.offsetX;
         int ry = element.getBaseY(screenHeight) + shiftY + element.offsetY;
 
-        context.getMatrices().push();
-        context.getMatrices().translate(rx, ry, 0);
-        context.getMatrices().scale(element.textScale, element.textScale, 1.0f);
+        context.getMatrices().pushMatrix();
+        context.getMatrices().translate(rx, ry);
+        context.getMatrices().scale(element.textScale, element.textScale);
 
         MutableText renderText = Text.literal(element.text).setStyle(Text.empty().getStyle().withBold(element.textBold));
 
@@ -62,7 +63,7 @@ public final class GuiElementRenderer {
         }
 
         context.drawTextWithShadow(textRenderer, renderText, drawX, 0, element.textColor);
-        context.getMatrices().pop();
+        context.getMatrices().popMatrix();
     }
 
     public static void renderRichText(DrawContext context, TextRenderer textRenderer, GuiElement element, int screenWidth, int screenHeight) {
@@ -76,9 +77,9 @@ public final class GuiElementRenderer {
         int ry = element.getBaseY(screenHeight) + shiftY + element.offsetY;
         int lineHeight = textRenderer.fontHeight + 2;
 
-        context.getMatrices().push();
-        context.getMatrices().translate(rx, ry, 0);
-        context.getMatrices().scale(element.richScale, element.richScale, 1.0f);
+        context.getMatrices().pushMatrix();
+        context.getMatrices().translate(rx, ry);
+        context.getMatrices().scale(element.richScale, element.richScale);
 
         int ly = 0;
 
@@ -101,7 +102,7 @@ public final class GuiElementRenderer {
             }
         }
 
-        context.getMatrices().pop();
+        context.getMatrices().popMatrix();
     }
 
     public static void renderImage(DrawContext context, GuiElement element, int screenWidth, int screenHeight) {
@@ -112,6 +113,6 @@ public final class GuiElementRenderer {
         if (element.texture == null) return;
         int rx = element.getRenderX(screenWidth, shiftX);
         int ry = element.getRenderY(screenHeight, shiftY);
-        context.drawTexture(element.texture, rx, ry, 0, 0, element.width, element.height, element.texWidth, element.texHeight);
+        context.drawTexture(RenderPipelines.GUI_TEXTURED, element.texture, rx, ry, 0.0f, 0.0f, element.width, element.height, element.texWidth, element.texHeight);
     }
 }

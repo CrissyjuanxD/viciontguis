@@ -3,8 +3,9 @@ package com.crissyjuanxd.viciontguis.client.gui;
 import com.crissyjuanxd.viciontguis.client.ViciontGuisClient;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.text.Text;
@@ -49,7 +50,7 @@ public class DynamicGuiScreen extends Screen {
     private void playSound(String soundId, float pitch, float volume) {
         if (this.client != null && soundId != null && !soundId.isEmpty()) {
             float finalVolume = volume * ViciontGuisClient.MENU_VOLUME;
-            this.client.getSoundManager().play(net.minecraft.client.sound.PositionedSoundInstance.master(SoundEvent.of(Identifier.of(soundId)), pitch, finalVolume));
+            this.client.getSoundManager().play(net.minecraft.client.sound.PositionedSoundInstance.ui(SoundEvent.of(Identifier.of(soundId)), pitch, finalVolume));
         }
     }
 
@@ -111,12 +112,12 @@ public class DynamicGuiScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (ViciontGuisClient.GuiKey.matchesKey(keyCode, scanCode)) {
+    public boolean keyPressed(KeyInput input) {
+        if (ViciontGuisClient.GuiKey.matchesKey(input)) {
             this.close();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(input);
     }
 
     @Override
@@ -162,29 +163,23 @@ public class DynamicGuiScreen extends Screen {
         GuiElement hoveredElement = null;
         int currentZ = 0;
 
-        context.getMatrices().push();
+        context.getMatrices().pushMatrix();
         // Escalar desde el centro real para mantener las proporciones exactas
-        context.getMatrices().translate(this.width / 2f, this.height / 2f, 0);
-        context.getMatrices().scale(finalScale, finalScale, 1.0f);
-        context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f, 0);
-
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
+        context.getMatrices().translate(this.width / 2f, this.height / 2f);
+        context.getMatrices().scale(finalScale, finalScale);
+        context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f);
 
         if (background != null) {
-            context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+            
             int bgX = (virtualSw / 2) - (background.width() / 2);
             int bgY = (virtualSh / 2) - (background.height() / 2);
-            context.drawTexture(background.texture(), bgX, bgY, 0, 0, background.width(), background.height(), background.texWidth(), background.texHeight());
-            context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+            context.drawTexture(RenderPipelines.GUI_TEXTURED, background.texture(), bgX, bgY, 0.0f, 0.0f, background.width(), background.height(), background.texWidth(), background.texHeight());
+            
         }
 
         for (GuiElement element : interactableElements) {
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
-
-            context.getMatrices().push();
-            context.getMatrices().translate(0, 0, currentZ);
+                        context.getMatrices().pushMatrix();
+            context.getMatrices().translate(0, currentZ);
 
             boolean isHovered = animScale >= 1.0f && !isClosing && element.isHovered(adjMouseX, adjMouseY, virtualSw, virtualSh);
 
@@ -204,13 +199,13 @@ public class DynamicGuiScreen extends Screen {
                     hoveredElement = element;
                 }
                 if (element.isButton && !element.type.equals("item_slot") && !element.type.equals("entity")) {
-                    context.setShaderColor(0.85F, 0.85F, 0.85F, 1.0F);
+                    
                 } else {
-                    context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+                    
                 }
             } else {
                 element.wasHovered = false;
-                context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+                
             }
 
             switch (element.type) {
@@ -220,22 +215,22 @@ public class DynamicGuiScreen extends Screen {
                     if (element.texture != null) {
                         int rx = element.getRenderX(virtualSw, 0);
                         int ry = element.getRenderY(virtualSh, 0);
-                        context.drawTexture(element.texture, rx, ry, 0, 0, element.width, element.height, element.texWidth, element.texHeight);
+                        context.drawTexture(RenderPipelines.GUI_TEXTURED, element.texture, rx, ry, 0.0f, 0.0f, element.width, element.height, element.texWidth, element.texHeight);
                     }
 
                     // Extrae la matriz virtual para usar renderizado físico (Absoluto)
-                    context.getMatrices().pop(); // Quita transformacion de elemento
-                    context.getMatrices().pop(); // Quita transformacion principal
+                    context.getMatrices().popMatrix(); // Quita transformacion de elemento
+                    context.getMatrices().popMatrix(); // Quita transformacion principal
 
                     EntityRenderHandler.render(context, element, this.client, this.width, this.height, virtualSw, virtualSh, finalScale, mouseX, mouseY, 0, 0);
 
                     // Restaura las matrices
-                    context.getMatrices().push();
-                    context.getMatrices().translate(this.width / 2f, this.height / 2f, 0);
-                    context.getMatrices().scale(finalScale, finalScale, 1.0f);
-                    context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f, 0);
-                    context.getMatrices().push();
-                    context.getMatrices().translate(0, 0, currentZ);
+                    context.getMatrices().pushMatrix();
+                    context.getMatrices().translate(this.width / 2f, this.height / 2f);
+                    context.getMatrices().scale(finalScale, finalScale);
+                    context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f);
+                    context.getMatrices().pushMatrix();
+                    context.getMatrices().translate(0, currentZ);
                 }
                 case "text" -> GuiElementRenderer.renderText(context, this.textRenderer, element, virtualSw, virtualSh);
                 case "rich_text" -> GuiElementRenderer.renderRichText(context, this.textRenderer, element, virtualSw, virtualSh);
@@ -243,13 +238,12 @@ public class DynamicGuiScreen extends Screen {
                 default -> GuiElementRenderer.renderImage(context, element, virtualSw, virtualSh);
             }
 
-            context.getMatrices().pop();
+            context.getMatrices().popMatrix();
             currentZ += 10;
-            context.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+            
         }
 
-        RenderSystem.disableBlend();
-        context.getMatrices().pop();
+                context.getMatrices().popMatrix();
 
         if (hoveredElement != null && !hoveredElement.tooltipLines.isEmpty()) {
             List<net.minecraft.text.OrderedText> wrappedTooltip = new ArrayList<>();
@@ -260,18 +254,22 @@ public class DynamicGuiScreen extends Screen {
                     wrappedTooltip.addAll(this.textRenderer.wrapLines(line, 1000));
                 }
             }
-            context.getMatrices().push();
-            context.getMatrices().translate(0, 0, 1000);
+            context.getMatrices().pushMatrix();
+            context.getMatrices().translate(0, 1000);
             context.drawOrderedTooltip(this.textRenderer, wrappedTooltip, mouseX, mouseY);
-            context.getMatrices().pop();
+            context.getMatrices().popMatrix();
         }
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubled) {
         if (isClosing || (Util.getMeasuringTimeMs() - animationStartTime < ANIM_DURATION_MS)) {
             return false;
         }
+
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
 
         if (button == 0) {
             float finalScale = customScaleModifier;
@@ -296,7 +294,7 @@ public class DynamicGuiScreen extends Screen {
                 }
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, doubled);
     }
 
     @Override

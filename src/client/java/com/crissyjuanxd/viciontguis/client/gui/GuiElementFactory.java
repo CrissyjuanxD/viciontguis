@@ -80,7 +80,7 @@ public final class GuiElementFactory {
 
                 if (obj.has("custom_model_data")) {
                     int cmd = obj.get("custom_model_data").getAsInt();
-                    mcItem.set(DataComponentTypes.CUSTOM_MODEL_DATA, new CustomModelDataComponent(cmd));
+                    mcItem.set(DataComponentTypes.CUSTOM_MODEL_DATA, new CustomModelDataComponent(List.of(), List.of(), List.of(), List.of(cmd)));
                 }
             }
             if (type.equals("entity") && obj.has("entity_id")) {

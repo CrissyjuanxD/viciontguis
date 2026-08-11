@@ -11,6 +11,7 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.util.Identifier;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
@@ -46,7 +47,7 @@ public class ViciontGuisClient implements ClientModInitializer {
                 "Abrir Menu Principal",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_G,
-                "Viciont Menu"
+                KeyBinding.Category.create(Identifier.of("viciontguis", "viciont_menu"))
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
