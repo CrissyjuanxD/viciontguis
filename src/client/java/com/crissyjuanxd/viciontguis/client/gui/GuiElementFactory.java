@@ -110,7 +110,7 @@ public final class GuiElementFactory {
         List<Text> tooltipLines = parseTooltip(obj, mcItem);
 
         String textContent = null;
-        int textColor = 0xFFFFFF;
+        int textColor = 0xFFFFFFFF;
         float textScale = 1.5f;
         boolean textBold = false;
         String textAlign = "center";
@@ -118,7 +118,7 @@ public final class GuiElementFactory {
             textContent = obj.has("text") ? obj.get("text").getAsString() : "";
             if (obj.has("color")) {
                 try {
-                    textColor = TextColor.parse(obj.get("color").getAsString()).getOrThrow().getRgb();
+                    textColor = 0xFF000000 | TextColor.parse(obj.get("color").getAsString()).getOrThrow().getRgb();
                 } catch (Exception ignored) {}
             }
             if (obj.has("scale")) {
@@ -131,13 +131,13 @@ public final class GuiElementFactory {
         }
 
         List<OrderedText> richLines = null;
-        int richColor = 0xFFFFFF;
+        int richColor = 0xFFFFFFFF;
         float richScale = 1.0f;
         boolean richOutline = false;
         if (type.equals("rich_text") && obj.has("message")) {
             if (obj.has("color")) {
                 try {
-                    richColor = TextColor.parse(obj.get("color").getAsString()).getOrThrow().getRgb();
+                    richColor = 0xFF000000 | TextColor.parse(obj.get("color").getAsString()).getOrThrow().getRgb();
                 } catch (Exception ignored) {}
             }
             try {
