@@ -59,7 +59,6 @@ public final class EntityRenderHandler {
             entity.age = (int) client.world.getTime();
         }
 
-        // Calculamos las medidas absolutas relacionando el espacio virtual de la GUI con la pantalla física de Minecraft
         int physCenterX = physWidth / 2;
         int physCenterY = physHeight / 2;
         int virtCenterX = virtWidth / 2;
@@ -72,14 +71,9 @@ public final class EntityRenderHandler {
 
         int scaledSize = (int) (element.entityScale * scale);
 
-        // FIX BUG 1: Empujamos la matriz 400 puntos hacia adelante en el eje Z para que el modelo 3D no se hunda en el fondo de la GUI
-        context.getMatrices().pushMatrix();
-        context.getMatrices().translate(0.0f, 400.0f);
-
+        // Ya no necesitamos empujar en Z, la 1.21.11 lo gestiona solo.
         context.enableScissor(absX1, absY1, absX2, absY2);
         InventoryScreen.drawEntity(context, absX1, absY1, absX2, absY2, scaledSize, mouseX, mouseY, 0.0625f, entity);
         context.disableScissor();
-
-        context.getMatrices().popMatrix();
     }
 }

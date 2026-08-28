@@ -153,7 +153,6 @@ public class DynamicGuiScreen extends Screen {
 
         float finalScale = animScale * customScaleModifier;
 
-        // RESOLUCIÓN VIRTUAL ESTABLE: Se calcula solo con el modificador, eliminando el tambaleo
         int virtualSw = (int) (this.width / customScaleModifier);
         int virtualSh = (int) (this.height / customScaleModifier);
 
@@ -161,25 +160,21 @@ public class DynamicGuiScreen extends Screen {
         int adjMouseY = (int) (virtualSh / 2f + (mouseY - this.height / 2f) / finalScale);
 
         GuiElement hoveredElement = null;
-        int currentZ = 0;
+        // ELIMINADO: currentZ
 
         context.getMatrices().pushMatrix();
-        // Escalar desde el centro real para mantener las proporciones exactas
         context.getMatrices().translate(this.width / 2f, this.height / 2f);
         context.getMatrices().scale(finalScale, finalScale);
         context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f);
 
         if (background != null) {
-            
             int bgX = (virtualSw / 2) - (background.width() / 2);
             int bgY = (virtualSh / 2) - (background.height() / 2);
             context.drawTexture(RenderPipelines.GUI_TEXTURED, background.texture(), bgX, bgY, 0.0f, 0.0f, background.width(), background.height(), background.texWidth(), background.texHeight());
-            
         }
 
         for (GuiElement element : interactableElements) {
-                        context.getMatrices().pushMatrix();
-            context.getMatrices().translate(0, currentZ);
+            context.getMatrices().pushMatrix();
 
             boolean isHovered = animScale >= 1.0f && !isClosing && element.isHovered(adjMouseX, adjMouseY, virtualSw, virtualSh);
 
@@ -198,39 +193,29 @@ public class DynamicGuiScreen extends Screen {
                 if (element.isButton || (element.tooltipLines != null && !element.tooltipLines.isEmpty())) {
                     hoveredElement = element;
                 }
-                if (element.isButton && !element.type.equals("item_slot") && !element.type.equals("entity")) {
-                    
-                } else {
-                    
-                }
             } else {
                 element.wasHovered = false;
-                
             }
 
             switch (element.type) {
                 case "item_slot" -> GuiElementRenderer.renderItemSlot(context, element, virtualSw, virtualSh, isHovered);
                 case "entity" -> {
-                    // Dibuja el marco de la entidad en espacio virtual
                     if (element.texture != null) {
                         int rx = element.getRenderX(virtualSw, 0);
                         int ry = element.getRenderY(virtualSh, 0);
                         context.drawTexture(RenderPipelines.GUI_TEXTURED, element.texture, rx, ry, 0.0f, 0.0f, element.width, element.height, element.texWidth, element.texHeight);
                     }
 
-                    // Extrae la matriz virtual para usar renderizado físico (Absoluto)
-                    context.getMatrices().popMatrix(); // Quita transformacion de elemento
-                    context.getMatrices().popMatrix(); // Quita transformacion principal
+                    context.getMatrices().popMatrix();
+                    context.getMatrices().popMatrix();
 
                     EntityRenderHandler.render(context, element, this.client, this.width, this.height, virtualSw, virtualSh, finalScale, mouseX, mouseY, 0, 0);
 
-                    // Restaura las matrices
                     context.getMatrices().pushMatrix();
                     context.getMatrices().translate(this.width / 2f, this.height / 2f);
                     context.getMatrices().scale(finalScale, finalScale);
                     context.getMatrices().translate(-virtualSw / 2f, -virtualSh / 2f);
                     context.getMatrices().pushMatrix();
-                    context.getMatrices().translate(0, currentZ);
                 }
                 case "text" -> GuiElementRenderer.renderText(context, this.textRenderer, element, virtualSw, virtualSh);
                 case "rich_text" -> GuiElementRenderer.renderRichText(context, this.textRenderer, element, virtualSw, virtualSh);
@@ -239,11 +224,9 @@ public class DynamicGuiScreen extends Screen {
             }
 
             context.getMatrices().popMatrix();
-            currentZ += 10;
-            
         }
 
-                context.getMatrices().popMatrix();
+        context.getMatrices().popMatrix();
 
         if (hoveredElement != null && !hoveredElement.tooltipLines.isEmpty()) {
             List<net.minecraft.text.OrderedText> wrappedTooltip = new ArrayList<>();
@@ -254,10 +237,8 @@ public class DynamicGuiScreen extends Screen {
                     wrappedTooltip.addAll(this.textRenderer.wrapLines(line, 1000));
                 }
             }
-            context.getMatrices().pushMatrix();
-            context.getMatrices().translate(0, 1000);
+            // Tooltip se dibuja directo, sin traslados
             context.drawOrderedTooltip(this.textRenderer, wrappedTooltip, mouseX, mouseY);
-            context.getMatrices().popMatrix();
         }
     }
 

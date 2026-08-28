@@ -238,10 +238,8 @@ public final class OverlayManager {
                     wrappedTooltip.addAll(textRenderer.wrapLines(line, 1000));
                 }
             }
-            context.getMatrices().pushMatrix();
-            context.getMatrices().translate(0, 1000);
+            // Tooltip directo
             context.drawOrderedTooltip(textRenderer, wrappedTooltip, mouseX, mouseY);
-            context.getMatrices().popMatrix();
         }
     }
 
